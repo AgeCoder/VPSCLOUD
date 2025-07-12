@@ -58,6 +58,9 @@ export async function GET(req: NextRequest) {
           originalFilename: localDocuments.originalFilename,
           branch: localDocuments.branch,
           zone: localDocuments.zone,
+          year: localDocuments.year,
+          type: localDocuments.type,
+          filetype: localDocuments.filetype,
           uploadedAt: localDocuments.uploadedAt,
           uploadedBy: localDocuments.uploadedBy,
         })
@@ -80,6 +83,9 @@ export async function GET(req: NextRequest) {
           branch: documents.branch,
           zone: documents.zone,
           uploadedAt: documents.uploadedAt,
+          year: documents.year,
+          type: documents.type,
+          filetype: documents.filetype,
           uploadedBy: {
             email: users.email,
           },

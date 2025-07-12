@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Download, FileText, Eye, Trash2 } from "lucide-react"
+import { Download, FileText, Eye, Trash2, Loader2, Filter, X } from "lucide-react"
 import { format } from "date-fns"
 import {
   Dialog,
@@ -14,9 +14,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import ImagePreview from "./ImagePreview"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "./ui/label"
+import { SearchBar } from "./search-bar"
 
 interface Document {
   id: string
@@ -24,11 +33,13 @@ interface Document {
   originalFilename: string
   branch: string
   zone: string
+  year: string
+  type: string
+  filetype: string
   uploadedAt: string
   uploadedBy: {
     email: string
   }
-  fileType: string
 }
 
 interface DocumentListProps {
@@ -37,17 +48,51 @@ interface DocumentListProps {
   isLoading: boolean
   user: any
   onDocumentDeleted?: (documentId: string) => void
+  setDocuments: (docs: Document[]) => void
+  onChange: (value: string) => void
 }
 
-export function DocumentList({ documents, searchQuery, isLoading, user, onDocumentDeleted }: DocumentListProps) {
+export function DocumentList({
+  documents,
+  searchQuery,
+  isLoading,
+  user,
+  onDocumentDeleted,
+  setDocuments,
+  onChange,
+}: DocumentListProps) {
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [previewingId, setPreviewingId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [isImage, setImage] = useState(false)
+  const [deleteDialogId, setDeleteDialogId] = useState<string | null>(null)
 
-  const filteredDocuments = documents.filter((doc) =>
-    doc.originalFilename.toLowerCase().includes(searchQuery.toLowerCase()),
-  )
+  const [yearFilter, setYearFilter] = useState<string>("all")
+  const [branchFilter, setBranchFilter] = useState<string>("all")
+  const [docTypeFilter, setDocTypeFilter] = useState<string>("all")
+  const [fileTypeFilter, setFileTypeFilter] = useState<string>("all")
+
+  const years = [...new Set(documents.map((doc) => doc.year))].sort((a, b) => b.localeCompare(a))
+  const branches = [...new Set(documents.map((doc) => doc.branch))].sort()
+  const docTypes = [...new Set(documents.map((doc) => doc.type))].sort()
+  const fileTypes = [...new Set(documents.map((doc) => doc.filetype))].sort()
+
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch = doc.originalFilename.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesYear = yearFilter === "all" || doc.year === yearFilter
+    const matchesBranch = branchFilter === "all" || doc.branch === branchFilter
+    const matchesDocType = docTypeFilter === "all" || doc.type === docTypeFilter
+    const matchesFileType = fileTypeFilter === "all" || doc.filetype === fileTypeFilter
+    return matchesSearch && matchesYear && matchesBranch && matchesDocType && matchesFileType
+  })
+
+  const resetFilters = () => {
+    setYearFilter("all")
+    setBranchFilter("all")
+    setDocTypeFilter("all")
+    setFileTypeFilter("all")
+  }
 
   const handleDownload = async (documentId: string) => {
     setDownloadingId(documentId)
@@ -62,14 +107,13 @@ export function DocumentList({ documents, searchQuery, isLoading, user, onDocume
         a.download = doc?.originalFilename || "document.pdf"
         document.body.appendChild(a)
         a.click()
-        window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
         toast.success("Download started successfully")
       } else {
         toast.error("Failed to download document")
       }
-    } catch (error) {
-      console.error("Download failed:", error)
+    } catch (err) {
       toast.error("Download failed")
     } finally {
       setDownloadingId(null)
@@ -77,51 +121,45 @@ export function DocumentList({ documents, searchQuery, isLoading, user, onDocume
   }
 
   const handlePreview = async (documentId: string) => {
+    setPreviewingId(documentId)
     try {
       const response = await fetch(`/api/documents/${documentId}/download`)
       if (!response.ok) {
         toast.error("Failed to load document preview")
         return
       }
-
+      const contentType = response.headers.get("Content-Type") || ""
       const blob = await response.blob()
-      const fileURL = window.URL.createObjectURL(blob)
+      const fileURL = URL.createObjectURL(blob)
 
-      // Open in new tab
-      const newTab = window.open()
-      if (newTab) {
-        newTab.location.href = fileURL
-        setIsPreviewOpen(true) // Update state if needed for UI indication
-      } else {
-        // Fallback if pop-up is blocked
-        toast.error("Popup blocked — please allow popups for preview")
-      }
-    } catch (error) {
-      console.error("Preview failed:", error)
+      setPreviewUrl(fileURL)
+      setIsPreviewOpen(true)
+      setImage(contentType.startsWith("image/"))
+    } catch (err) {
       toast.error("Preview failed")
+    } finally {
+      setPreviewingId(null)
     }
   }
 
-
-  const handleDelete = async (documentId: string) => {
-    setDeletingId(documentId)
+  const handleDelete = async () => {
+    if (!deleteDialogId) return
     try {
-      const response = await fetch(`/api/documents/delete/${documentId}`, {
+      const response = await fetch(`/api/documents/delete/${deleteDialogId}`, {
         method: "DELETE",
       })
       if (response.ok) {
         toast.success("Document deleted successfully")
-        if (onDocumentDeleted) {
-          onDocumentDeleted(documentId)
-        }
+        if (onDocumentDeleted) onDocumentDeleted(deleteDialogId)
+        const updated = documents.filter((doc) => doc.id !== deleteDialogId)
+        setDocuments(updated)
       } else {
         toast.error("Failed to delete document")
       }
-    } catch (error) {
-      console.error("Delete failed:", error)
+    } catch (err) {
       toast.error("Delete failed")
     } finally {
-      setDeletingId(null)
+      setDeleteDialogId(null)
     }
   }
 
@@ -130,35 +168,18 @@ export function DocumentList({ documents, searchQuery, isLoading, user, onDocume
       <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
           <Card key={i}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Skeleton className="h-8 w-8 rounded-md" />
-                  <div>
-                    <Skeleton className="h-4 w-48 mb-2" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-8" />
+            <CardContent className="p-4 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <div>
+                  <Skeleton className="h-4 w-48 mb-2" />
+                  <Skeleton className="h-3 w-32" />
                 </div>
               </div>
+              <Skeleton className="h-8 w-20" />
             </CardContent>
           </Card>
         ))}
-      </div>
-    )
-  }
-
-  if (filteredDocuments.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <FileText className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium ">No documents found</h3>
-        <p className="mt-1 text-sm ">
-          {searchQuery ? "Try adjusting your search terms." : "Upload your first document to get started."}
-        </p>
       </div>
     )
   }
@@ -167,125 +188,124 @@ export function DocumentList({ documents, searchQuery, isLoading, user, onDocume
     <div className="space-y-4">
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>Document Preview</DialogTitle>
-            <DialogDescription>
-              Previewing: {previewUrl && (() => {
-                const fileName = previewUrl.split('/').pop() || '';
-                const doc = documents.find(d => d.filename.includes(fileName));
-                return doc ? doc.originalFilename : '';
-              })()}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="h-full w-full flex items-center justify-center">
-            {previewUrl && (
-              <iframe
-                src={previewUrl}
-                className="w-full h-full border rounded-md"
-                title="Document Preview"
-              />
-            )}
+        <DialogContent className="max-w-7xl h-[90vh]">
+          <div className="h-full w-full flex items-center justify-center bg-muted/50 p-4 overflow-auto">
+            {previewUrl &&
+              (isImage ? (
+                <ImagePreview previewUrl={previewUrl} />
+              ) : (
+                <iframe src={previewUrl} className="w-full h-full rounded shadow" />
+              ))}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Documents List */}
-      {filteredDocuments.map((document) => (
-        <Card key={document.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${document.fileType === 'pdf' ? 'bg-red-50 text-red-600' :
-                  document.fileType === 'docx' ? 'bg-blue-50 text-blue-600' :
-                    'bg-gray-50 text-gray-600'
-                  }`}>
+      {/* Delete Dialog */}
+      <Dialog open={!!deleteDialogId} onOpenChange={() => setDeleteDialogId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Are you sure?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <strong>
+                {documents.find((d) => d.id === deleteDialogId)?.originalFilename}
+              </strong>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="destructive" onClick={handleDelete}>
+              Delete Document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Filters */}
+      <div className="flex justify-end items-center">
+        {(yearFilter !== "all" || branchFilter !== "all" || docTypeFilter !== "all" || fileTypeFilter !== "all") && (
+          <Button variant="outline" className="gap-2 text-sm" onClick={resetFilters}>
+            <X className="w-4 h-4" />
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg">
+        {[{ label: "Year", values: years, state: yearFilter, setState: setYearFilter },
+        { label: "Branch", values: branches, state: branchFilter, setState: setBranchFilter },
+        { label: "Document Type", values: docTypes, state: docTypeFilter, setState: setDocTypeFilter },
+        { label: "File Type", values: fileTypes, state: fileTypeFilter, setState: setFileTypeFilter }]
+          .map(({ label, values, state, setState }) => (
+            <div className="space-y-2" key={label}>
+              <Label>{label}</Label>
+              <Select value={state} onValueChange={setState}>
+                <SelectTrigger>
+                  <SelectValue placeholder={`All ${label.toLowerCase()}s`} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {values.map((v) => (
+                    <SelectItem key={v} value={v}>
+                      {v}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+      </div>
+      <div>
+        <SearchBar
+          value={searchQuery}
+          onChange={onChange}
+        />
+      </div>
+
+      {/* Documents */}
+      {filteredDocuments.length === 0 ? (
+        <div className="text-center py-12">
+          <FileText className="h-12 w-12 mx-auto text-gray-400" />
+          <p className="mt-2 text-sm font-medium">No documents found</p>
+        </div>
+      ) : (
+        filteredDocuments.map((doc) => (
+          <Card key={doc.id} className="hover:shadow transition-shadow">
+            <CardContent className="p-4 flex justify-between items-start">
+              <div className="flex items-start space-x-3">
+                <div className={`p-2 rounded-lg ${doc.filetype === 'pdf' ? 'bg-red-50 text-blue-600' : doc.filetype === 'docx' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-green-600'}`}>
                   <FileText className="h-6 w-6" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium ">{document.originalFilename}</h3>
-                  <div className="flex items-center space-x-2 mt-1 flex-wrap gap-y-1">
-                    <Badge variant="outline" className="text-xs">
-                      {document.branch || document.zone}
-                    </Badge>
-                    <span className="text-xs ">
-                      Uploaded by {document.uploadedBy.email}
-                    </span>
-                    <span className="text-xs ">
-                      {format(new Date(document.uploadedAt), "MMM d, yyyy")}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      {document.fileType}
-                    </Badge>
+                  <p className="text-sm font-medium">{doc.originalFilename}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
+                    <Badge variant="outline">{doc.branch || doc.zone}</Badge>
+                    <Badge variant="outline">{doc.year}</Badge>
+                    <Badge variant="outline">{doc.type}</Badge>
+                    <span>Uploaded by {doc.uploadedBy.email}</span>
+                    <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
+                    <Badge variant="secondary">{doc.filetype}</Badge>
                   </div>
                 </div>
               </div>
               <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePreview(document.id)}
-                  className="gap-1"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="sr-only">Preview</span>
+                <Button size="sm" variant="outline" onClick={() => handlePreview(doc.id)}>
+                  {previewingId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
                 </Button>
-
-                <Button
-                  onClick={() => handleDownload(document.id)}
-                  disabled={downloadingId === document.id}
-                  size="sm"
-                  className="gap-1"
-                >
-                  {downloadingId === document.id ? (
-                    "Downloading..."
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      <span className="sr-only">Download</span>
-                    </>
-                  )}
+                <Button size="sm" onClick={() => handleDownload(doc.id)} disabled={downloadingId === doc.id}>
+                  {downloadingId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 </Button>
-
-                {
-                  user && user.role === 'admin' && (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="gap-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Are you sure absolutely sure?</DialogTitle>
-                          <DialogDescription>
-                            This action cannot be undone. This will permanently delete the document
-                            <span className="font-semibold"> {document.originalFilename}</span>.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button
-                            variant="destructive"
-                            onClick={() => handleDelete(document.id)}
-                            disabled={deletingId === document.id}
-                          >
-                            {deletingId === document.id ? "Deleting..." : "Delete Document"}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  )
-                }
+                {user?.role === "admin" && (
+                  <Button size="sm" variant="destructive" onClick={() => setDeleteDialogId(doc.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   )
 }

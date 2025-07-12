@@ -6,6 +6,7 @@ export default defineConfig({
   schema: './lib/localdb/schema.ts',
   dialect: 'sqlite',
   dbCredentials: {
-    url: './sqlite.db',
+    url: process.env.DATABASE_URL_LOCAL!,
+    // url: process.env.DATABASE_URL!,
   },
 });

@@ -1,16 +1,11 @@
 import { auth } from '@/lib/auth'
-import { syncDocuments } from '@/lib/syncDocuments'
+import React from 'react'
 
-export default async function TestPage() {
+export default async function page() {
     const session = await auth()
-    if (!session) return null
-
-    const result = await syncDocuments(session.user)
-    console.log(result)
+    console.log(session.user);
 
     return (
-        <div>
-            <h1>Test Page</h1>
-        </div>
+        <div>page</div>
     )
 }

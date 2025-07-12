@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { redirect, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -11,7 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { LogOut } from "lucide-react"
+import { BarChart, FileText, History, LogOut, Settings } from "lucide-react"
+import Link from "next/link"
 
 export interface UserMenuProps {
   user: {
@@ -55,6 +56,60 @@ export function UserMenu({ user }: UserMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onClick={
+            (e) => {
+              redirect('/convert')
+            }
+          }
+        >
+          <FileText />
+          <span>PDF Converter</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+
+        {
+          user.role === 'admin' && (
+            <>
+              <DropdownMenuItem
+                onClick={
+                  (e) => {
+                    redirect('/r2-analytics')
+                  }
+                }
+              >
+                <BarChart />
+                <span>R2 Analytics</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={
+                  (e) => {
+                    redirect('/accesslogs')
+                  }
+                }
+              >
+                <History />
+                <span> Access Logs</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={
+                  (e) => {
+                    redirect('/setting')
+                  }
+                }
+              >
+                <Settings />
+                <span> Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+
+            </>
+          )
+        }
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>

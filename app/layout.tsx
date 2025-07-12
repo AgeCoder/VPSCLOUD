@@ -2,11 +2,11 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
+import BackendCheckWrapper from '@/components/BackendCheckWrapper'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'VPSCLOUD',
+  description: 'VPSCLOUD',
 }
 
 export default function RootLayout({
@@ -24,8 +24,9 @@ export default function RootLayout({
           disableTransitionOnChange
 
         >
-
-          {children}
+          <BackendCheckWrapper>
+            {children}
+          </BackendCheckWrapper>
         </ThemeProvider>
         <Toaster />
       </body>

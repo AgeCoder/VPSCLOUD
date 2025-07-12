@@ -38,6 +38,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
       const response = await fetch("/api/documents")
       if (response.ok) {
         const data = await response.json()
+
         setDocuments(data)
       }
     } catch (error) {
@@ -56,10 +57,10 @@ export function DashboardContent({ user }: DashboardContentProps) {
     <div className="min-h-screen ">
       <Navbar user={user} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col ">
-          {/* Header with welcome message */}
-
+      <Card
+        className="m-2 p-5 rounded-b-2xl"
+      >
+        <CardContent>
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
@@ -83,23 +84,15 @@ export function DashboardContent({ user }: DashboardContentProps) {
             </TabsList>
 
             <TabsContent value="documents" className="space-y-6">
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Document Library</CardTitle>
-                  <CardDescription>
-                    {documents.length} documents available in {user.branch || user.zone}
-                  </CardDescription>
-                </CardHeader>
+              <Card className="border-t-0 rounded-none">
                 <CardContent className="space-y-4">
-                  <SearchBar
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                  />
                   <DocumentList
                     documents={documents}
                     searchQuery={searchQuery}
                     isLoading={isLoading}
                     user={user}
+                    setDocuments={setDocuments}
+                    onChange={setSearchQuery}
                   />
                 </CardContent>
               </Card>
@@ -135,8 +128,8 @@ export function DashboardContent({ user }: DashboardContentProps) {
               </TabsContent>
             )}
           </Tabs>
-        </div>
-      </main>
+        </CardContent>
+      </Card>
     </div>
   )
 }

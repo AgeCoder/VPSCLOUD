@@ -20,9 +20,12 @@ export const documents = pgTable("documents", {
   originalFilename: text("original_filename").notNull(),
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
+  year: text('year'),
+  filetype: text('filetype'),
+  type: text('type'),
   uploadedBy: uuid("uploaded_by")
-    .references(() => users.id)
-    .notNull(),
+    .references(() => users.id, { onDelete: "set null" })
+    .default(null),
   r2Key: text("r2_key").notNull(),
   iv: text("iv").notNull(),
   tag: text("tag").notNull(),
@@ -89,4 +92,22 @@ export const verificationTokens = pgTable("verification_tokens", {
   token: text("token").notNull(),
   expires: timestamp("expires").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+})
+
+// make a tabel for settings
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+
+export const branch = pgTable("branch", {
+  id: serial("id").primaryKey(),
+  name: text('name').notNull().unique(),
+  zone: text('zone').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })

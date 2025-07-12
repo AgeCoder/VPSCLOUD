@@ -30,6 +30,9 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
   const [message, setMessage] = useState("")
   const [branch, setBranch] = useState<string | null>(null)
   const [zone, setZone] = useState<string | null>(null)
+  const [year, setYear] = useState<string>(new Date().getFullYear().toString())
+  const [docType, setDocType] = useState<string>("type1")
+  const [fileType, setFileType] = useState<string>("")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
@@ -60,6 +63,12 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
         return
       }
       validFiles.push(file)
+
+      // Set file type based on the first file's type
+      if (validFiles.length === 1) {
+        const type = file.type.split('/')[1] || file.name.split('.').pop()?.toLowerCase() || 'unknown'
+        setFileType(type)
+      }
     })
 
     if (errorMessage) {
@@ -85,9 +94,17 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
         formData.append(`file${index}`, file)
       })
 
+      // Add metadata fields
+      formData.append("year", year)
+      formData.append("type", docType)
+      formData.append("filetype", fileType)
+
       if (user.role === "admin") {
         formData.append("branch", branch ?? "")
         formData.append("zone", zone ?? "")
+      } else {
+        formData.append("branch", user.branch ?? "")
+        formData.append("zone", user.zone ?? "")
       }
 
       const response = await fetch("/api/documents/upload", {
@@ -114,10 +131,14 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
     }
   }
 
+  // Generate years from 2000 to current year + 5
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 30 }, (_, i) => (currentYear - 10 + i).toString())
+
   return (
-    <div>
+    <div className="mb-80 space-y-6">
       {user.role === "admin" ? (
-        <div className="flex gap-5 w-full mb-5">
+        <div className="flex gap-5 w-full">
           <div className="space-y-2 w-full">
             <Label htmlFor="zone">Zone</Label>
             <Select
@@ -158,6 +179,50 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
       ) : (
         <p className="text-sm text-gray-600">You are uploading as a user.</p>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="space-y-2">
+          <Label htmlFor="year">Year</Label>
+          <Select onValueChange={setYear} value={year}>
+            <SelectTrigger id="year">
+              <SelectValue placeholder="Select Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((year) => (
+                <SelectItem key={year} value={year}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="docType">Document Type</Label>
+          <Select onValueChange={setDocType} value={docType}>
+            <SelectTrigger id="docType">
+              <SelectValue placeholder="Select Document Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="type1">Type 1</SelectItem>
+              <SelectItem value="type2">Type 2</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="fileType">File Type</Label>
+          <Input
+            id="fileType"
+            type="text"
+            value={fileType}
+            onChange={(e) => setFileType(e.target.value)}
+            placeholder="File type will be auto-detected"
+            readOnly
+          />
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="file-upload">Select PDF or Image Files</Label>

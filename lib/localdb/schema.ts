@@ -20,7 +20,10 @@ export const documents = sqliteTable("documents", {
   originalFilename: text("original_filename").notNull(),
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
-  uploadedBy: text("uploaded_by").notNull(),
+  year: text('year'),
+  filetype: text('filetype'),
+  type: text('type'),
+  uploadedBy: text("uploaded_by"),
   r2Key: text("r2_key").notNull(),
   iv: text("iv").notNull(),
   tag: text("tag").notNull(),
@@ -76,3 +79,21 @@ export const changeLogRelations = relations(changeLog, ({ one }) => ({
     references: [documents.id],
   }),
 }))
+
+// make a tabel for settings
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+})
+
+// branchs
+
+export const branch = sqliteTable('branch', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  zone: text('zone').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
