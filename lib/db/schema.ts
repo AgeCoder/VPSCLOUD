@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, pgEnum, serial } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, uuid, pgEnum, serial, boolean } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 
 export const roleEnum = pgEnum("role", ["branch", "zonal_head", "admin"])
@@ -11,7 +11,9 @@ export const users = pgTable("users", {
   role: roleEnum("role").notNull().default("branch"),
   zone: text("zone"),
   branch: text("branch"),
+  canUpload: boolean("can_upload").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
 
 export const documents = pgTable("documents", {

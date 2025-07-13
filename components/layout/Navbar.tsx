@@ -31,6 +31,7 @@ export default function Navbar({ user }: UserMenuProps) {
                     </div>
 
                     <div className="flex items-center space-x-4">
+
                         <ModeToggle />
                         <UserMenu user={user} />
                     </div>

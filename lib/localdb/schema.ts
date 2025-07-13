@@ -1,3 +1,4 @@
+// localdb/schema.ts
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
 import { relations } from "drizzle-orm"
 
@@ -11,7 +12,9 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: roleEnumValues }).notNull().default("branch"),
   zone: text("zone"),
   branch: text("branch"),
+  canUpload: integer("can_upload", { mode: 'boolean' }).default(false),
   createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(), // Added for better sync tracking
 })
 
 export const documents = sqliteTable("documents", {
@@ -46,10 +49,37 @@ export const changeLog = sqliteTable("change_log", {
   changedAt: text("changed_at").notNull(),
 })
 
-export const syncMetadata = sqliteTable("sync_metadata", {
+export const verificationTokens = sqliteTable("verification_tokens", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  token: text("token").notNull(),
+  expires: text("expires").notNull(),
+  createdAt: text("created_at").notNull(),
+})
+
+export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 })
+
+export const branch = sqliteTable('branch', {
+  id: integer("id").primaryKey(), // Changed to match main DB
+  name: text('name').notNull().unique(),
+  zone: text('zone').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
+// Enhanced sync metadata table
+export const syncMetadata = sqliteTable("sync_metadata", {
+  tableName: text("table_name").primaryKey(),
+  lastSync: text("last_sync").notNull(),
+  lastChangeId: integer("last_change_id"), // For tracking change_log increments
+})
+
+// Relations remain the same as in your original schema
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -80,20 +110,3 @@ export const changeLogRelations = relations(changeLog, ({ one }) => ({
   }),
 }))
 
-// make a tabel for settings
-export const settings = sqliteTable("settings", {
-  key: text("key").primaryKey(),
-  value: text("value").notNull(),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-})
-
-// branchs
-
-export const branch = sqliteTable('branch', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-  zone: text('zone').notNull(),
-  createdAt: text('created_at').notNull(),
-  updatedAt: text('updated_at').notNull(),
-})

@@ -9,7 +9,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ZONE_MAPPING } from "@/lib/zones"
 
 export interface user {
   email: string
@@ -21,9 +20,11 @@ export interface user {
 interface UploadFormProps {
   user: user
   onSuccess: () => void
+  zoneMapping: Record<string, string[]>
+  docType: string[] | null
 }
 
-export function UploadForm({ user, onSuccess }: UploadFormProps) {
+export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadFormProps) {
   const [files, setFiles] = useState<File[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -31,7 +32,7 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
   const [branch, setBranch] = useState<string | null>(null)
   const [zone, setZone] = useState<string | null>(null)
   const [year, setYear] = useState<string>(new Date().getFullYear().toString())
-  const [docType, setDocType] = useState<string>("type1")
+  const [docTypelocal, setDocTypelocal] = useState<string>(docType?.[0] ?? 'Default');
   const [fileType, setFileType] = useState<string>("")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +97,7 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
 
       // Add metadata fields
       formData.append("year", year)
-      formData.append("type", docType)
+      formData.append("type", docTypelocal)
       formData.append("filetype", fileType)
 
       if (user.role === "admin") {
@@ -151,7 +152,7 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
                 <SelectValue placeholder="Select Zone" />
               </SelectTrigger>
               <SelectContent>
-                {Object.keys(ZONE_MAPPING).map((zoneName) => (
+                {Object.keys(zoneMapping).map((zoneName) => (
                   <SelectItem key={zoneName} value={zoneName}>
                     {zoneName}
                   </SelectItem>
@@ -167,7 +168,7 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
               </SelectTrigger>
               <SelectContent>
                 {zone &&
-                  ZONE_MAPPING[zone as keyof typeof ZONE_MAPPING].map((branchName) => (
+                  zoneMapping[zone as keyof typeof zoneMapping].map((branchName) => (
                     <SelectItem key={branchName} value={branchName}>
                       {branchName}
                     </SelectItem>
@@ -198,14 +199,22 @@ export function UploadForm({ user, onSuccess }: UploadFormProps) {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="docType">Document Type</Label>
-          <Select onValueChange={setDocType} value={docType}>
-            <SelectTrigger id="docType">
-              <SelectValue placeholder="Select Document Type" />
+          <Label htmlFor="docTypelocal">Document Type</Label>
+          <Select onValueChange={setDocTypelocal} value={docTypelocal}>
+            <SelectTrigger id="docTypelocal">
+              <SelectValue
+                placeholder="Select Document Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="type1">Type 1</SelectItem>
-              <SelectItem value="type2">Type 2</SelectItem>
+              {docType ?
+                docType.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                )) : <SelectItem value='docType'>
+                  Default
+                </SelectItem>
+              }
             </SelectContent>
           </Select>
         </div>

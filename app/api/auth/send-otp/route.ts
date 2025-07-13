@@ -14,7 +14,13 @@ export async function POST(request: NextRequest) {
     // Check if user exists, if not create one
     let user = await getUserByEmail(email)
     if (!user) {
-      user = await createUser(email)
+
+      return NextResponse.json(
+        { error: "User does not exist" },
+        { status: 400 }
+      )
+
+
     }
 
     // Create verification token (OTP)

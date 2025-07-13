@@ -3,6 +3,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import BackendCheckWrapper from '@/components/BackendCheckWrapper'
+import Syncer from '@/components/Sync/Syncer'
 
 export const metadata: Metadata = {
   title: 'VPSCLOUD',
@@ -24,7 +25,9 @@ export default function RootLayout({
           disableTransitionOnChange
 
         >
+          {/* <Syncer /> */}
           <BackendCheckWrapper>
+
             {children}
           </BackendCheckWrapper>
         </ThemeProvider>

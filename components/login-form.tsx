@@ -76,6 +76,7 @@ export function LoginForm() {
         body: JSON.stringify({ email, otp }),
       })
 
+      const data = await response.json()
 
       if (response.ok) {
         setMessage("Login successful! Redirecting...")
@@ -84,7 +85,7 @@ export function LoginForm() {
           router.push("/dashboard")
         }, 1000)
       } else {
-        setMessage("Invalid OTP. Please try again.")
+        setMessage(data.error || "Invalid OTP. Please try again. or Email Does not Exist")
         setMessageType("error")
       }
     } catch (error) {
@@ -146,8 +147,8 @@ export function LoginForm() {
         </div>
 
         {message && (
-          <Alert className={messageType === "success" ? "border-green-200 bg-green-50" : ""}>
-            <AlertDescription className={messageType === "success" ? "text-green-800" : ""}>{message}</AlertDescription>
+          <Alert className={messageType === "success" ? "border-green-200 bg-green-50" : "border-red-500"}>
+            <AlertDescription className={messageType === "success" ? "text-green-800" : "text-red-500 "}>{message}</AlertDescription>
           </Alert>
         )}
 

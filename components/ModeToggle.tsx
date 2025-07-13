@@ -5,7 +5,6 @@ import { ChevronLeft, Moon, Settings, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 export function ModeToggle() {
     const { theme, setTheme } = useTheme()
     const router = useRouter()

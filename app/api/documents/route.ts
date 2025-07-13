@@ -6,7 +6,6 @@ import { documents as localDocuments } from "@/lib/localdb/schema"
 import { count, desc, eq, inArray } from "drizzle-orm"
 import { getAccessibleBranches } from "@/lib/access-control"
 import { auth } from "@/lib/auth"
-import { syncDocuments } from "@/lib/syncDocuments"
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,29 +23,7 @@ export async function GET(req: NextRequest) {
 
     const accessibleBranches = getAccessibleBranches(role, zone, branch)
 
-    // First check if we need to sync
-    const [serverCountResult, localCountResult] = await Promise.all([
-      db.select({ count: count() })
-        .from(documents)
-        .where(inArray(documents.branch, accessibleBranches)),
-      dblocal.select({ count: count() })
-        .from(localDocuments)
-        .where(inArray(localDocuments.branch, accessibleBranches))
-        .all()
-    ])
 
-    const serverCount = Number(serverCountResult[0]?.count || 0)
-    const localCount = Number(localCountResult[0]?.count || 0)
-
-    // Trigger sync if counts don't match
-    if (serverCount !== localCount) {
-      console.log(`Count mismatch - Server: ${serverCount}, Local: ${localCount}. Triggering sync...`)
-      await syncDocuments({
-        id,
-        role,
-        branch
-      })
-    }
 
     // Get documents from local DB (fallback to server if local fails)
     let userDocuments
@@ -69,11 +46,8 @@ export async function GET(req: NextRequest) {
         .orderBy(desc(localDocuments.uploadedAt))
         .all()
 
-      // If local DB is empty but server has data, fallback to server
-      if (userDocuments.length === 0 && serverCount > 0) {
-        throw new Error('Local DB empty but server has documents')
-      }
     } catch (localError) {
+
       console.warn('Falling back to server DB:', localError)
       userDocuments = await db
         .select({

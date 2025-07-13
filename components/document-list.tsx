@@ -188,6 +188,11 @@ export function DocumentList({
     <div className="space-y-4">
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogHeader className="hidden">
+          <DialogTitle></DialogTitle>
+          <DialogDescription>
+          </DialogDescription>
+        </DialogHeader>
         <DialogContent className="max-w-7xl h-[90vh]">
           <div className="h-full w-full flex items-center justify-center bg-muted/50 p-4 overflow-auto">
             {previewUrl &&

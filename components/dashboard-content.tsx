@@ -3,12 +3,10 @@
 import { useState, useEffect } from "react"
 import { DocumentList } from "@/components/document-list"
 import { UploadForm } from "@/components/upload-form"
-import { SearchBar } from "@/components/search-bar"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Settings, UploadCloud, FileSearch } from "lucide-react"
+import { UploadCloud, FileSearch } from "lucide-react"
 import Navbar from "./layout/Navbar"
-import { AdminDashboard } from "./admin-dashboard"
 
 interface User {
   id: string
@@ -20,9 +18,12 @@ interface User {
 
 interface DashboardContentProps {
   user: User
+  zoneMapping: Record<string, string[]>
+  canUpload: Boolean | null
+  docType: string[] | null
 }
 
-export function DashboardContent({ user }: DashboardContentProps) {
+export function DashboardContent({ user, zoneMapping, canUpload, docType }: DashboardContentProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [documents, setDocuments] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -71,16 +72,14 @@ export function DashboardContent({ user }: DashboardContentProps) {
                 <FileSearch className="h-4 w-4" />
                 Documents
               </TabsTrigger>
-              <TabsTrigger value="upload" className="gap-2 w-full">
-                <UploadCloud className="h-4 w-4" />
-                Upload
-              </TabsTrigger>
-              {user.role === "admin" && (
-                <TabsTrigger value="admin" className="gap-2 w-full">
-                  <Settings className="h-4 w-4" />
-                  Admin
-                </TabsTrigger>
-              )}
+              {
+                canUpload && (
+                  <TabsTrigger value="upload" className="gap-2 w-full">
+                    <UploadCloud className="h-4 w-4" />
+                    Upload
+                  </TabsTrigger>
+                )
+              }
             </TabsList>
 
             <TabsContent value="documents" className="space-y-6">
@@ -107,26 +106,14 @@ export function DashboardContent({ user }: DashboardContentProps) {
                   <UploadForm
                     user={user}
                     onSuccess={handleUploadSuccess}
+                    zoneMapping={zoneMapping}
+                    docType={docType}
                   />
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {user.role === "admin" && (
-              <TabsContent value="admin">
-                <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Administration</CardTitle>
-                    <CardDescription>
-                      Manage users, permissions, and system settings
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <AdminDashboard />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
+
           </Tabs>
         </CardContent>
       </Card>

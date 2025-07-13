@@ -1,126 +1,618 @@
-import { eq, count, and, gt, inArray, notInArray } from "drizzle-orm";
+// sync.service.ts
+import { eq, and, gt, inArray, notInArray, lte, isNull } from "drizzle-orm";
 import { db } from "./db";
-import { changeLog, documents } from "./db/schema";
-import { syncMetadata, documents as localDocuments } from "./localdb/schema";
+import {
+    users as serverUsers,
+    documents as serverDocuments,
+    accessLogs as serverAccessLogs,
+    changeLog as serverChangeLog,
+    verificationTokens as serverVerificationTokens,
+    settings as serverSettings,
+    branch as serverBranch
+} from "./db/schema";
+import {
+    users as localUsers,
+    documents as localDocuments,
+    accessLogs as localAccessLogs,
+    changeLog as localChangeLog,
+    verificationTokens as localVerificationTokens,
+    settings as localSettings,
+    branch as localBranch,
+    syncMetadata
+} from "./localdb/schema";
 import { dblocal } from "./localdb";
 
-export async function syncDocuments(user: { id: string; branch: string; role: string }) {
-    try {
-        // 1. Get last sync time
-        const lastSyncResult = await dblocal
-            .select({ value: syncMetadata.value })
-            .from(syncMetadata)
-            .where(eq(syncMetadata.key, "lastSync"))
-            .all();
+type User = {
+    email: string
+    role: string
+    branch?: string
+    zone?: string
+}
 
-        const lastSync = lastSyncResult[0]?.value || new Date(0).toISOString();
+type SyncOptions = {
+    fullSync?: boolean;
+    tables?: string[];
+};
 
-        // 2. Fetch all server documents
-        const serverDocs = await db
-            .select()
-            .from(documents)
-            .where(user.role !== "admin" ? eq(documents.branch, user.branch) : undefined);
+export class SyncService {
+    private user: User;
 
-        const serverCount = serverDocs.length;
-        const serverDocIds = serverDocs.map(doc => String(doc.id));
+    constructor(user: User) {
+        this.user = user;
+    }
 
-        // 3. Fetch all local documents
-        const localDocs = await dblocal
-            .select()
-            .from(localDocuments)
-            .where(user.role !== "admin" ? eq(localDocuments.branch, user.branch) : undefined)
-            .all();
+    async syncAll(options: SyncOptions = {}): Promise<SyncResult> {
+        try {
+            const results: Record<string, TableSyncResult> = {};
 
-        const localCount = localDocs.length;
-        const localDocIds = localDocs.map(doc => doc.id);
+            // Determine which tables to sync
+            const tablesToSync = options.tables || [
+                'users', 'documents', 'accessLogs', 'changeLog',
+                'verificationTokens', 'settings', 'branch'
+            ];
 
-        // 4. Identify documents to delete (exist locally but not on server)
-        const docsToDelete = localDocIds.filter(id => !serverDocIds.includes(id));
+            // Sync each table
+            for (const table of tablesToSync) {
+                switch (table) {
+                    case 'users':
+                        results.users = await this.syncUsers(options.fullSync);
+                        break;
+                    case 'documents':
+                        results.documents = await this.syncDocuments(options.fullSync);
+                        break;
+                    case 'accessLogs':
+                        results.accessLogs = await this.syncAccessLogs(options.fullSync);
+                        break;
+                    case 'changeLog':
+                        results.changeLog = await this.syncChangeLog(options.fullSync);
+                        break;
+                    case 'verificationTokens':
+                        results.verificationTokens = await this.syncVerificationTokens(options.fullSync);
+                        break;
+                    case 'settings':
+                        results.settings = await this.syncSettings(options.fullSync);
+                        break;
+                    case 'branch':
+                        results.branch = await this.syncBranch(options.fullSync);
+                        break;
+                }
+            }
 
-        // 5. Identify documents to upsert
-        const docsToUpsert = serverDocs.filter(doc =>
-            !localDocIds.includes(String(doc.id)) ||
-            localDocs.some(localDoc =>
-                String(localDoc.id) === String(doc.id) &&
-                new Date(localDoc.updatedAt) < new Date(doc.updatedAt)
-            )
-        );
-
-        // 6. Process deletions
-        if (docsToDelete.length > 0) {
-            await dblocal
-                .delete(localDocuments)
-                .where(inArray(localDocuments.id, docsToDelete));
-        }
-
-        // 7. Process upserts
-        for (const doc of docsToUpsert) {
-            const docData = {
-                id: String(doc.id),
-                filename: doc.filename,
-                originalFilename: doc.originalFilename,
-                branch: doc.branch,
-                zone: doc.zone,
-                year: doc.year,
-                filetype: doc.filetype,
-                type: doc.type,
-                uploadedBy: String(doc.uploadedBy),
-                r2Key: doc.r2Key,
-                iv: doc.iv,
-                tag: doc.tag,
-                uploadedAt: doc.uploadedAt.toISOString(),
-                updatedAt: doc.updatedAt.toISOString(),
+            return {
+                status: 'success',
+                results,
+                timestamp: new Date().toISOString()
             };
-
-            await dblocal
-                .insert(localDocuments)
-                .values(docData)
-                .onConflictDoUpdate({
-                    target: localDocuments.id,
-                    set: docData,
-                });
+        } catch (error) {
+            console.error('Sync error:', error);
+            return {
+                status: 'error',
+                message: error instanceof Error ? error.message : 'Sync failed',
+                timestamp: new Date().toISOString()
+            };
         }
+    }
 
-        // 8. Update sync metadata
+    private async getLastSync(tableName: string): Promise<{ lastSync: string; lastChangeId?: number }> {
+        const result = await dblocal
+            .select()
+            .from(syncMetadata)
+            .where(eq(syncMetadata.tableName, tableName))
+            .get();
+
+        return {
+            lastSync: result?.lastSync || new Date(0).toISOString(),
+            lastChangeId: result?.lastChangeId ?? 0
+        };
+    }
+
+    private async updateLastSync(tableName: string, lastChangeId?: number): Promise<void> {
         await dblocal
             .insert(syncMetadata)
             .values({
-                key: "lastSync",
-                value: new Date().toISOString()
+                tableName,
+                lastSync: new Date().toISOString(),
+                lastChangeId
             })
             .onConflictDoUpdate({
-                target: syncMetadata.key,
+                target: syncMetadata.tableName,
                 set: {
-                    value: new Date().toISOString()
-                },
+                    lastSync: new Date().toISOString(),
+                    lastChangeId
+                }
             });
+    }
 
-        // 9. Get final count
-        const finalCountResult = await dblocal
-            .select({ count: count() })
-            .from(localDocuments)
-            .where(user.role !== "admin" ? eq(localDocuments.branch, user.branch) : undefined)
-            .all();
+    private async syncUsers(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('users');
+        const baseConditions = [];
 
-        const finalLocalCount = Number(finalCountResult[0]?.count || 0);
-        const totalChanges = docsToDelete.length + docsToUpsert.length;
+        // Role-based filtering
+        if (this.user.role === 'branch') {
+            baseConditions.push(eq(serverUsers.branch, String(this.user.branch)));
+        } else if (this.user.role === 'zonal_head') {
+            baseConditions.push(eq(serverUsers.zone, String(this.user.zone)));
+        }
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverUsers)
+            .where(
+                fullSync
+                    ? baseConditions.length ? and(...baseConditions) : undefined
+                    : and(...baseConditions, gt(serverUsers.updatedAt, new Date(lastSync)))
+            );
+
+        // Get local IDs for comparison
+        const localIds = (await dblocal.select({ id: localUsers.id }).from(localUsers).all())
+            .map(row => row.id);
+
+        const serverIds = serverData.map(row => row.id.toString());
+
+        // Identify records to delete (exist locally but not on server)
+        const toDelete = localIds.filter(id => !serverIds.includes(id));
+        if (toDelete.length > 0) {
+            await dblocal
+                .delete(localUsers)
+                .where(inArray(localUsers.id, toDelete));
+        }
+
+        // Process upserts
+        const toUpsert = serverData.filter(row =>
+            !localIds.includes(row.id.toString()) ||
+            fullSync // Always upsert in full sync mode
+        );
+
+        for (const row of toUpsert) {
+            await dblocal
+                .insert(localUsers)
+                .values({
+                    id: row.id.toString(),
+                    email: row.email,
+                    role: row.role,
+                    zone: row.zone || null,
+                    branch: row.branch || null,
+                    createdAt: row.createdAt.toISOString(),
+                    updatedAt: String(row.updatedAt.toISOString())
+                })
+                .onConflictDoUpdate({
+                    target: localUsers.id,
+                    set: {
+                        email: row.email,
+                        role: row.role,
+                        zone: row.zone || null,
+                        branch: row.branch || null,
+                        updatedAt: String(row.updatedAt.toISOString())
+                    }
+                });
+        }
+
+        await this.updateLastSync('users');
 
         return {
-            status: "synced",
-            updated: totalChanges,
-            serverCount,
-            initialLocalCount: localCount,
-            finalLocalCount,
-            changesProcessed: totalChanges,
-            docsDeleted: docsToDelete.length,
-            docsUpserted: docsToUpsert.length
-        };
-    } catch (error: unknown) {
-        console.error("Sync error:", error);
-        return {
-            status: "error",
-            message: error instanceof Error ? error.message : "Sync failed",
-            error: error instanceof Error ? error.stack : undefined
+            table: 'users',
+            added: toUpsert.length,
+            updated: 0, // We don't track updates separately in this simple approach
+            deleted: toDelete.length,
+            total: serverData.length
         };
     }
+
+    private async syncDocuments(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('documents');
+        const baseConditions = [];
+
+        // Role-based filtering
+        if (this.user.role === 'branch') {
+            baseConditions.push(eq(serverDocuments.branch, String(this.user.branch)));
+        } else if (this.user.role === 'zonal_head') {
+            baseConditions.push(eq(serverDocuments.zone, String(this.user.zone)));
+        }
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverDocuments)
+            .where(
+                fullSync
+                    ? baseConditions.length ? and(...baseConditions) : undefined
+                    : and(...baseConditions, gt(serverDocuments.updatedAt, new Date(lastSync)))
+            );
+
+        // Get local IDs for comparison
+        const localIds = (await dblocal.select({ id: localDocuments.id }).from(localDocuments).all())
+            .map(row => row.id);
+
+        const serverIds = serverData.map(row => row.id.toString());
+
+        // Identify records to delete
+        const toDelete = localIds.filter(id => !serverIds.includes(id));
+        if (toDelete.length > 0) {
+            await dblocal
+                .delete(localDocuments)
+                .where(inArray(localDocuments.id, toDelete));
+        }
+
+        // Process upserts
+        const toUpsert = serverData.filter(row =>
+            !localIds.includes(row.id.toString()) ||
+            fullSync // Always upsert in full sync mode
+        );
+
+        for (const row of toUpsert) {
+            await dblocal
+                .insert(localDocuments)
+                .values({
+                    id: row.id.toString(),
+                    filename: row.filename,
+                    originalFilename: row.originalFilename,
+                    branch: row.branch,
+                    zone: row.zone,
+                    year: row.year || null,
+                    filetype: row.filetype || null,
+                    type: row.type || null,
+                    uploadedBy: row.uploadedBy?.toString() || null,
+                    r2Key: row.r2Key,
+                    iv: row.iv,
+                    tag: row.tag,
+                    uploadedAt: row.uploadedAt.toISOString(),
+                    updatedAt: row.updatedAt.toISOString()
+                })
+                .onConflictDoUpdate({
+                    target: localDocuments.id,
+                    set: {
+                        filename: row.filename,
+                        originalFilename: row.originalFilename,
+                        branch: row.branch,
+                        zone: row.zone,
+                        year: row.year || null,
+                        filetype: row.filetype || null,
+                        type: row.type || null,
+                        uploadedBy: row.uploadedBy?.toString() || null,
+                        r2Key: row.r2Key,
+                        iv: row.iv,
+                        tag: row.tag,
+                        updatedAt: row.updatedAt.toISOString()
+                    }
+                });
+        }
+
+        await this.updateLastSync('documents');
+
+        return {
+            table: 'documents',
+            added: toUpsert.length,
+            updated: 0,
+            deleted: toDelete.length,
+            total: serverData.length
+        };
+    }
+
+    private async syncAccessLogs(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('accessLogs');
+
+        // For access logs, we'll sync only logs related to documents the user has access to
+        const accessibleDocs = await db
+            .select({ id: serverDocuments.id })
+            .from(serverDocuments)
+            .where(
+                this.user.role === 'branch'
+                    ? eq(serverDocuments.branch, String(this.user.branch))
+                    : this.user.role === 'zonal_head'
+                        ? eq(serverDocuments.zone, String(this.user.zone))
+                        : undefined
+            );
+
+        const docIds = accessibleDocs.map(d => d.id.toString());
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverAccessLogs)
+            .where(
+                and(
+                    inArray(serverAccessLogs.fileId, accessibleDocs.map(d => d.id)),
+                    fullSync ? undefined : gt(serverAccessLogs.timestamp, new Date(lastSync))
+                ))
+
+        // Get local IDs for comparison
+        const localIds = (await dblocal.select({ id: localAccessLogs.id }).from(localAccessLogs).all())
+            .map(row => row.id);
+
+        const serverIds = serverData.map(row => row.id.toString());
+
+        // Identify records to delete
+        const toDelete = localIds.filter(id => !serverIds.includes(id));
+        if (toDelete.length > 0) {
+            await dblocal
+                .delete(localAccessLogs)
+                .where(inArray(localAccessLogs.id, toDelete));
+        }
+
+        // Process upserts
+        const toUpsert = serverData.filter(row =>
+            !localIds.includes(row.id.toString()) ||
+            fullSync
+        );
+
+        for (const row of toUpsert) {
+            await dblocal
+                .insert(localAccessLogs)
+                .values({
+                    id: row.id.toString(),
+                    userId: row.userId.toString(),
+                    fileId: row.fileId.toString(),
+                    action: row.action,
+                    timestamp: row.timestamp.toISOString()
+                })
+                .onConflictDoUpdate({
+                    target: localAccessLogs.id,
+                    set: {
+                        userId: row.userId.toString(),
+                        fileId: row.fileId.toString(),
+                        action: row.action,
+                        timestamp: row.timestamp.toISOString()
+                    }
+                });
+        }
+
+        await this.updateLastSync('accessLogs');
+
+        return {
+            table: 'accessLogs',
+            added: toUpsert.length,
+            updated: 0,
+            deleted: toDelete.length,
+            total: serverData.length
+        };
+    }
+
+    private async syncChangeLog(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync, lastChangeId } = await this.getLastSync('changeLog');
+
+        // Get accessible document IDs
+        const accessibleDocs = await db
+            .select({ id: serverDocuments.id })
+            .from(serverDocuments)
+            .where(
+                this.user.role === 'branch'
+                    ? eq(serverDocuments.branch, String(this.user.branch))
+                    : this.user.role === 'zonal_head'
+                        ? eq(serverDocuments.zone, String(this.user.zone))
+                        : undefined
+            );
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverChangeLog)
+            .where(
+                and(
+                    inArray(serverChangeLog.documentId, accessibleDocs.map(d => d.id)),
+                    fullSync
+                        ? undefined
+                        : lastChangeId
+                            ? gt(serverChangeLog.id, lastChangeId)
+                            : gt(serverChangeLog.changedAt, new Date(lastSync))
+                )
+            );
+
+        // Process inserts (change log is append-only, no updates or deletes)
+        for (const row of serverData) {
+            await dblocal
+                .insert(localChangeLog)
+                .values({
+                    id: row.id,
+                    documentId: row.documentId.toString(),
+                    changeType: row.changeType,
+                    changedAt: row.changedAt.toISOString()
+                })
+                .onConflictDoNothing();
+        }
+
+        // Update last sync with the highest change log ID
+        const maxId = serverData.reduce((max, row) => Math.max(max, row.id), lastChangeId || 0);
+        await this.updateLastSync('changeLog', maxId);
+
+        return {
+            table: 'changeLog',
+            added: serverData.length,
+            updated: 0,
+            deleted: 0,
+            total: serverData.length
+        };
+    }
+
+    private async syncVerificationTokens(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('verificationTokens');
+
+        // Verification tokens are only needed for the current user
+        const serverData = await db
+            .select()
+            .from(serverVerificationTokens)
+            .where(
+                and(
+                    eq(serverVerificationTokens.email, this.user.email),
+                    fullSync ? undefined : gt(serverVerificationTokens.createdAt, new Date(lastSync))
+                )
+            );
+
+        // Get local IDs for comparison
+        const localIds = (await dblocal.select({ id: localVerificationTokens.id }).from(localVerificationTokens).all())
+            .map(row => row.id);
+
+        const serverIds = serverData.map(row => row.id.toString());
+
+        // Identify records to delete
+        const toDelete = localIds.filter(id => !serverIds.includes(id));
+        if (toDelete.length > 0) {
+            await dblocal
+                .delete(localVerificationTokens)
+                .where(inArray(localVerificationTokens.id, toDelete));
+        }
+
+        // Process upserts
+        const toUpsert = serverData.filter(row =>
+            !localIds.includes(row.id.toString()) ||
+            fullSync
+        );
+
+        for (const row of toUpsert) {
+            await dblocal
+                .insert(localVerificationTokens)
+                .values({
+                    id: row.id.toString(),
+                    email: row.email,
+                    token: row.token,
+                    expires: row.expires.toISOString(),
+                    createdAt: row.createdAt.toISOString()
+                })
+                .onConflictDoUpdate({
+                    target: localVerificationTokens.id,
+                    set: {
+                        email: row.email,
+                        token: row.token,
+                        expires: row.expires.toISOString(),
+                        createdAt: row.createdAt.toISOString()
+                    }
+                });
+        }
+
+        await this.updateLastSync('verificationTokens');
+
+        return {
+            table: 'verificationTokens',
+            added: toUpsert.length,
+            updated: 0,
+            deleted: toDelete.length,
+            total: serverData.length
+        };
+    }
+
+    private async syncSettings(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('settings');
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverSettings)
+            .where(
+                fullSync ? undefined : gt(serverSettings.updatedAt, new Date(lastSync))
+            );
+
+        // Process upserts (settings don't need to be deleted)
+        for (const row of serverData) {
+            await dblocal
+                .insert(localSettings)
+                .values({
+                    key: row.key,
+                    value: row.value,
+                    createdAt: row.createdAt.toISOString(),
+                    updatedAt: row.updatedAt.toISOString()
+                })
+                .onConflictDoUpdate({
+                    target: localSettings.key,
+                    set: {
+                        value: row.value,
+                        updatedAt: row.updatedAt.toISOString()
+                    }
+                });
+        }
+
+        await this.updateLastSync('settings');
+
+        return {
+            table: 'settings',
+            added: serverData.length,
+            updated: 0,
+            deleted: 0,
+            total: serverData.length
+        };
+    }
+
+    private async syncBranch(fullSync = false): Promise<TableSyncResult> {
+        const { lastSync } = await this.getLastSync('branch');
+
+        // Get server data
+        const serverData = await db
+            .select()
+            .from(serverBranch)
+            .where(
+                fullSync
+                    ? undefined
+                    : this.user.role === 'zonal_head'
+                        ? and(
+                            gt(serverBranch.updatedAt, new Date(lastSync)),
+                            eq(serverBranch.zone, String(this.user.zone))
+                        )
+                        : gt(serverBranch.updatedAt, new Date(lastSync))
+            );
+
+        // Get local IDs for comparison
+        const localIds = (await dblocal.select({ id: localBranch.id }).from(localBranch).all())
+            .map(row => row.id.toString());
+
+        const serverIds = serverData.map(row => row.id.toString());
+
+        // Identify records to delete
+        const toDelete = localIds.filter(id => !serverIds.includes(id));
+        if (toDelete.length > 0) {
+            await dblocal
+                .delete(localBranch)
+                .where(inArray(localBranch.id, toDelete.map(id => parseInt(id))));
+        }
+
+        // Process upserts
+        const toUpsert = serverData.filter(row =>
+            !localIds.includes(row.id.toString()) ||
+            fullSync
+        );
+
+        for (const row of toUpsert) {
+            await dblocal
+                .insert(localBranch)
+                .values({
+                    id: row.id,
+                    name: row.name,
+                    zone: row.zone,
+                    createdAt: row.createdAt.toISOString(),
+                    updatedAt: row.updatedAt.toISOString()
+                })
+                .onConflictDoUpdate({
+                    target: localBranch.id,
+                    set: {
+                        name: row.name,
+                        zone: row.zone,
+                        updatedAt: row.updatedAt.toISOString()
+                    }
+                });
+        }
+
+        await this.updateLastSync('branch');
+
+        return {
+            table: 'branch',
+            added: toUpsert.length,
+            updated: 0,
+            deleted: toDelete.length,
+            total: serverData.length
+        };
+    }
+}
+
+// Types
+interface TableSyncResult {
+    table: string;
+    added: number;
+    updated: number;
+    deleted: number;
+    total: number;
+}
+
+interface SyncResult {
+    status: 'success' | 'error';
+    results?: Record<string, TableSyncResult>;
+    message?: string;
+    timestamp: string;
 }
