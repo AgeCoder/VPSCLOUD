@@ -1,21 +1,28 @@
 // app/api/r2-analytics/route.ts
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3"
 import { NextResponse } from "next/server"
+import { getR2Credentials } from "./action";
+
+
 
 export async function GET() {
+
+    const { endpoint, accessKeyId, secretAccessKey, bucketName } = await getR2Credentials();
+
     const client = new S3Client({
         region: "auto",
-        endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
+        endpoint,
         credentials: {
-            accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY!,
+            accessKeyId,
+            secretAccessKey,
         },
-    })
+    });
+
 
     try {
         const result = await client.send(
             new ListObjectsV2Command({
-                Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME!,
+                Bucket: bucketName!,
             })
         )
 

@@ -1,3 +1,4 @@
+import fs from 'fs/promises';
 import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
@@ -5,6 +6,10 @@ import { documents, accessLogs, changeLog } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { deleteFromR2 } from "@/lib/r2"
 import { canAccessDocument } from "@/lib/access-control"
+import path from "path"
+import { existsSync } from "fs"
+import { dblocal } from '@/lib/localdb';
+import { documents as localdocuments } from '@/lib/localdb/schema';
 
 export async function DELETE(
     request: NextRequest,
@@ -55,8 +60,23 @@ export async function DELETE(
         // Step 6: Delete from R2
         await deleteFromR2(document.r2Key)
 
+        const fileExtension = path.extname(document.originalFilename)
+        const localPath = path.join(process.cwd(), "public", "decrypted-files", `${document.filename}${fileExtension}`)
+
+        if (existsSync(localPath)) {
+            await fs.unlink(localPath)
+            console.log("Deleted local decrypted file:", localPath)
+        }
+
         // Step 7: Delete from DB
         await db.delete(documents).where(eq(documents.id, id))
+
+        if (session.user.role == 'admin' || session.user.branch == document.branch || document.zone == session.user.zone) {
+            const exists = await dblocal.select().from(localdocuments).where(eq(localdocuments.id, id))
+            if (exists.length > 0) {
+                await dblocal.delete(localdocuments).where(eq(localdocuments.id, id))
+            }
+        }
 
         return NextResponse.json({
             message: "File deleted successfully",

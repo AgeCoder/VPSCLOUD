@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { users } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
+import { dblocal } from '@/lib/localdb'
+import { users as loacaluser } from '@/lib/localdb/schema'
 
 export async function POST(req: NextRequest) {
     try {
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json()
-        const { email, role = "branch", zone = "", branch = "" } = body
+        const { email, role = "branch", zone = "", branch = "", canUpload = false } = body
 
         if (!email?.trim()) {
             return NextResponse.json({ error: 'Email is required' }, { status: 400 })
@@ -32,10 +34,32 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'User already exists' }, { status: 400 })
         }
 
+
         const result = await db
             .insert(users)
-            .values({ email, role, zone, branch })
+            .values({ email, role, zone, branch, canUpload })
             .returning()
+
+
+        if (!result || result.length === 0) {
+            return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+        }
+
+        if (session.user.role == 'admin') {
+            await dblocal
+                .insert(loacaluser)
+                .values({
+                    id: result[0].id,
+                    email,
+                    role,
+                    zone,
+                    branch,
+                    canUpload,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                })
+                .returning()
+        }
 
         return NextResponse.json({ user: result[0] }, { status: 201 })
     } catch (error) {

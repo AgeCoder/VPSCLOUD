@@ -5,6 +5,13 @@ import { auth } from "./lib/auth"
 export default auth((req: NextRequest) => {
   const { nextUrl } = req
 
+
+
+
+  if (nextUrl.pathname === '/api/status') {
+    return NextResponse.next(); // allow test route
+  }
+
   const isLoggedIn = !!req.auth
 
 

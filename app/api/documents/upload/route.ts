@@ -7,6 +7,8 @@ import { encryptFile } from "@/lib/encryption"
 import { getBranchZone } from "@/lib/zones"
 import { v4 as uuidv4 } from "uuid"
 import { db } from "@/lib/db"
+import { dblocal } from "@/lib/localdb"
+import { documents as localdocuments, accessLogs as localaccessLogs, changeLog as localchangeLog } from "@/lib/localdb/schema"
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,7 +98,11 @@ export async function POST(request: NextRequest) {
       }
 
       const buffer = Buffer.from(await file.arrayBuffer())
-      const { encryptedData, iv, tag } = encryptFile(buffer)
+      const result = await encryptFile(buffer);
+      const encryptedData = result?.encryptedData;
+      const iv = result?.iv;
+      const tag = result?.tag;
+
 
       const fileId = uuidv4()
       const r2Key = `${branch}/${fileId}-${file.name}`
@@ -127,17 +133,52 @@ export async function POST(request: NextRequest) {
         })
         .returning()
 
-      await db.insert(accessLogs).values({
+
+      const accessLog = await db.insert(accessLogs).values({
         userId: session.user.id,
         fileId: document.id,
         action: "upload",
-      })
+      }).returning()
+
 
       await db.insert(changeLog).values({
         documentId: document.id,
         changeType: "insert",
         changedAt: new Date(),
       })
+
+      if (session.user.role === "admin" || session.user.branch == branch) {
+        await dblocal.insert(localdocuments).values({
+          id: fileId,
+          filename: `${fileId}-${file.name}`,
+          originalFilename: file.name,
+          branch: branch!,
+          zone,
+          year,
+          filetype: filetype || fileExt?.substring(1) || file.type.split('/')[1] || 'unknown',
+          type: docType,
+          uploadedBy: session.user.id,
+          r2Key,
+          iv,
+          tag,
+          uploadedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        await dblocal.insert(localaccessLogs).values({
+          id: accessLog[0].id,
+          userId: session.user.id,
+          fileId: document.id,
+          action: "upload",
+          timestamp: accessLog[0].timestamp.toISOString()
+        })
+        await dblocal.insert(localchangeLog).values({
+          documentId: document.id,
+          changeType: "insert",
+          changedAt: new Date().toISOString(),
+        })
+
+      }
+
 
       documentIds.push(document.id)
     }

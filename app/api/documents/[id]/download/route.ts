@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { documents, accessLogs } from "@/lib/db/schema"
+import { accessLogs } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { deleteFromR2, getSignedDownloadUrl } from "@/lib/r2"
 import { canAccessDocument } from "@/lib/access-control"
@@ -9,6 +9,8 @@ import { decryptFile } from "@/lib/encryption"
 import path from "path"
 import fs from "fs/promises"
 import { existsSync } from "fs"
+import { dblocal } from "@/lib/localdb"
+import { documents } from "@/lib/localdb/schema"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.redirect(new URL("/login", request.url))
     }
 
-    const [document] = await db.select().from(documents).where(eq(documents.id, id)).limit(1)
+    const [document] = await dblocal.select().from(documents).where(eq(documents.id, id)).limit(1)
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
     }
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 
     const buffer = Buffer.from(await response.arrayBuffer())
-    const decrypted = decryptFile(buffer, document.iv, document.tag)
+    const decrypted = await decryptFile(buffer, document.iv, document.tag)
 
     // Ensure folder exists
     await fs.mkdir(path.dirname(localPath), { recursive: true })

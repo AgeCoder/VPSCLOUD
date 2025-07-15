@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import { dblocal } from "@/lib/localdb"
 import { documents, users } from "@/lib/db/schema"
-import { documents as localDocuments } from "@/lib/localdb/schema"
+import { documents as localDocuments, users as localuser } from "@/lib/localdb/schema"
 import { count, desc, eq, inArray } from "drizzle-orm"
 import { getAccessibleBranches } from "@/lib/access-control"
 import { auth } from "@/lib/auth"
@@ -39,9 +39,12 @@ export async function GET(req: NextRequest) {
           type: localDocuments.type,
           filetype: localDocuments.filetype,
           uploadedAt: localDocuments.uploadedAt,
-          uploadedBy: localDocuments.uploadedBy,
+          uploadedBy: {
+            email: localuser.email
+          },
         })
         .from(localDocuments)
+        .leftJoin(localuser, eq(localDocuments.uploadedBy, localuser.id))
         .where(inArray(localDocuments.branch, accessibleBranches))
         .orderBy(desc(localDocuments.uploadedAt))
         .all()

@@ -56,7 +56,6 @@ export function DashboardContent({ user, zoneMapping, canUpload, docType }: Dash
 
   return (
     <div className="min-h-screen ">
-      <Navbar user={user} />
 
       <Card
         className="m-2 p-5 rounded-b-2xl"

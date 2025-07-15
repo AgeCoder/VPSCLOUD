@@ -7,7 +7,7 @@ import { branch, settings } from "@/lib/localdb/schema"
 import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import Syncer from "@/components/Sync/Syncer"
+import Navbar from "@/components/layout/Navbar"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -37,7 +37,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {/* <Syncer /> */}
+      <Navbar user={session.user} />
       <DashboardContent
         user={session.user}
         zoneMapping={ZONE_MAPPING}

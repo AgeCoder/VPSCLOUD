@@ -15,7 +15,7 @@ export default async function LoginPage() {
     <div className="min-h-screen flex items-center justify-center ">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Document Management System</CardTitle>
+          <CardTitle className="text-xl font-bold">VPS Cloud Management System</CardTitle>
           <CardDescription>Enter your email to receive a 6-digit OTP code</CardDescription>
         </CardHeader>
         <CardContent>

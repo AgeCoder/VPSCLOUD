@@ -10,6 +10,7 @@ import { Tabs } from '@/components/setting/Tabs'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import { BackupSettings } from '@/components/backup/backup-settings'
 
 interface SettingsPageProps {
     session: any
@@ -62,6 +63,7 @@ export default function SettingsPage({
             {activeTab === 'branches' && <BranchTab branches={branches} session={session} />}
             {activeTab === 'users' && <UserTab users={users} branches={branches} session={session} />}
             {activeTab === 'settings' && <SettingsTab settings={settings} />}
+            {activeTab === 'Backup' && <BackupSettings />}
         </div>
     )
 }

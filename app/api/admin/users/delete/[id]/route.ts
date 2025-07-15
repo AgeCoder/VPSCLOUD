@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { users, documents } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
+import { dblocal } from '@/lib/localdb'
+import { users as loacaluser, documents as localdocuments } from '@/lib/localdb/schema'
 
 // Define your permanent admin user ID (set this based on your DB seed)
 
@@ -50,6 +52,27 @@ export async function DELETE(
         await db
             .delete(users)
             .where(eq(users.id, userId))
+
+        if (session.user.role == 'admin') {
+
+            const existingUser = await dblocal
+                .select()
+                .from(loacaluser)
+                .where(eq(loacaluser.id, userId))
+
+            if (existingUser.length > 0) {
+
+                await dblocal
+                    .update(localdocuments)
+                    .set({ uploadedBy: session.user.id })
+                    .where(eq(documents.uploadedBy, userId))
+
+                await dblocal
+                    .delete(loacaluser)
+                    .where(eq(loacaluser.id, userId))
+            }
+        }
+
 
         return NextResponse.json({ message: 'User deleted and documents reassigned' }, { status: 200 })
     } catch (error) {

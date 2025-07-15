@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { LayoutGrid, Users, Settings } from "lucide-react"
+import { LayoutGrid, Users, Settings, DatabaseBackup } from "lucide-react"
 
 interface SettingsTabsProps {
     activeTab: string
@@ -61,6 +61,17 @@ export function Tabs({
             >
                 <Settings className="h-4 w-4" />
                 System Settings
+            </Button>
+            <Button
+                variant="ghost"
+                className={cn(
+                    "px-4 py-3 rounded-none border-b-2 border-transparent gap-2",
+                    activeTab === 'Backup' && "border-primary text-primary font-medium bg-primary/5"
+                )}
+                onClick={() => setActiveTab('Backup')}
+            >
+                <DatabaseBackup className="h-4 w-4" />
+                Backup
             </Button>
         </div>
     )

@@ -96,7 +96,7 @@ export function UserTab({ users: initialUsers, branches, session }: UserTabProps
         }
 
         try {
-            const response = await fetch("/api/admin/users", {
+            const response = await fetch("/api/admin/users/create", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -135,7 +135,7 @@ export function UserTab({ users: initialUsers, branches, session }: UserTabProps
         setIsDeleting(prev => ({ ...prev, [userId]: true }))
 
         try {
-            const response = await fetch(`/api/admin/users/${userId}`, {
+            const response = await fetch(`/api/admin/users/delete/${userId}`, {
                 method: "DELETE",
             })
 
@@ -250,7 +250,7 @@ export function UserTab({ users: initialUsers, branches, session }: UserTabProps
                                         </SelectTrigger>
                                         <SelectContent>
                                             {filteredBranches.map(branch => (
-                                                <SelectItem key={branch.id} value={branch.id}>
+                                                <SelectItem key={branch.id} value={branch.name}>
                                                     {branch.name}
                                                 </SelectItem>
                                             ))}
