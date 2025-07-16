@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Users, Plus, Trash2, Pencil } from "lucide-react"
+import { Plus, Trash2, Pencil } from "lucide-react"
 import {
     Table,
     TableBody,
@@ -33,10 +33,9 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { UserEditModal } from './UserEditModal'
-import { getBranchesByZone, ZONE_MAPPING } from "@/lib/zones"
 import { Checkbox } from '../ui/checkbox'
 
-type UserRole = 'admin' | 'zone' | 'branch'
+type UserRole = 'admin' | 'zonal_head' | 'branch'
 
 interface User {
     id: string
@@ -63,10 +62,11 @@ interface UserTabProps {
             role: UserRole
             id: string
         }
-    }
+    },
+    ZONE_MAPPING: Record<string, string[]>
 }
 
-export function UserTab({ users: initialUsers, branches, session }: UserTabProps) {
+export function UserTab({ users: initialUsers, branches, session, ZONE_MAPPING }: UserTabProps) {
     const [users, setUsers] = useState<User[]>(initialUsers)
     const [editingUser, setEditingUser] = useState<User | null>(null)
     const [isCreatingUser, setIsCreatingUser] = useState(false)
@@ -200,7 +200,7 @@ export function UserTab({ users: initialUsers, branches, session }: UserTabProps
                                             ...newUser,
                                             role: value,
                                             ...(value === 'admin' ? { zone: '', branch: '' } : {}),
-                                            ...(value === 'zone' ? { branch: '' } : {})
+                                            ...(value === 'zonal_head' ? { branch: '' } : {})
                                         })
                                     }}
                                 >
@@ -209,7 +209,7 @@ export function UserTab({ users: initialUsers, branches, session }: UserTabProps
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="admin">Admin</SelectItem>
-                                        <SelectItem value="zone">Zone Manager</SelectItem>
+                                        <SelectItem value="zonal_head">Zone Manager</SelectItem>
                                         <SelectItem value="branch">Branch User</SelectItem>
                                     </SelectContent>
                                 </Select>

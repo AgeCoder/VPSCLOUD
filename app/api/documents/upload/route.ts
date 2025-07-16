@@ -26,12 +26,12 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
 
-    if (session.user.role === "admin") {
+    if (session.user.role === "admin" || session.user.role === "zonal_head") {
       branch = formData.get("branch") as string
       zone = formData.get("zone") as string
     } else {
       branch = session.user.branch
-      zone = getBranchZone(session.user.branch!)
+      zone = await getBranchZone(session.user.branch!)
     }
 
     // Get additional metadata
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       '.ico'
     ]
 
-    const documentIds: string[] = []
+    const documentIds: number[] = []
 
     for (const file of files) {
       // Get file extension
@@ -116,7 +116,6 @@ export async function POST(request: NextRequest) {
       const [document] = await db
         .insert(documents)
         .values({
-          id: fileId,
           filename: `${fileId}-${file.name}`,
           originalFilename: file.name,
           branch: branch!,
@@ -124,12 +123,12 @@ export async function POST(request: NextRequest) {
           year,
           filetype: filetype || fileExt?.substring(1) || file.type.split('/')[1] || 'unknown',
           type: docType,
-          uploadedBy: session.user.id,
+          uploadedBy: Number(session.user.id),
           r2Key,
           iv,
           tag,
-          uploadedAt: new Date(),
-          updatedAt: new Date(),
+          uploadedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         })
         .returning()
 
@@ -144,12 +143,12 @@ export async function POST(request: NextRequest) {
       await db.insert(changeLog).values({
         documentId: document.id,
         changeType: "insert",
-        changedAt: new Date(),
+        changedAt: new Date().toISOString(),
       })
 
-      if (session.user.role === "admin" || session.user.branch == branch) {
+      if (session.user.role === "admin" || session.user.branch == branch || session.user.zone === zone) {
         await dblocal.insert(localdocuments).values({
-          id: fileId,
+          id: document.id,
           filename: `${fileId}-${file.name}`,
           originalFilename: file.name,
           branch: branch!,
@@ -157,7 +156,7 @@ export async function POST(request: NextRequest) {
           year,
           filetype: filetype || fileExt?.substring(1) || file.type.split('/')[1] || 'unknown',
           type: docType,
-          uploadedBy: session.user.id,
+          uploadedBy: Number(session.user.id),
           r2Key,
           iv,
           tag,
@@ -166,11 +165,11 @@ export async function POST(request: NextRequest) {
         })
         await dblocal.insert(localaccessLogs).values({
           id: accessLog[0].id,
-          userId: session.user.id,
-          fileId: document.id,
+          userId: Number(session.user.id),
+          fileId: Number(document.id),
           action: "upload",
-          timestamp: accessLog[0].timestamp.toISOString()
-        })
+          timestamp: accessLog[0].timestamp,
+        });
         await dblocal.insert(localchangeLog).values({
           documentId: document.id,
           changeType: "insert",

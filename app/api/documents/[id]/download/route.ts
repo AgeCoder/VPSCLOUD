@@ -21,12 +21,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.redirect(new URL("/login", request.url))
     }
 
-    const [document] = await dblocal.select().from(documents).where(eq(documents.id, id)).limit(1)
+    const [document] = await dblocal.select().from(documents).where(eq(documents.id, Number(id))).limit(1)
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
     }
 
-    const hasAccess = canAccessDocument(
+    const hasAccess = await canAccessDocument(
       session.user.role,
       session.user.zone,
       session.user.branch,

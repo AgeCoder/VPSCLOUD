@@ -1,61 +1,65 @@
-import { pgTable, text, timestamp, uuid, pgEnum, serial, boolean } from "drizzle-orm/pg-core"
+import { sqliteTable, text, integer, } from "drizzle-orm/sqlite-core"
 import { relations } from "drizzle-orm"
 
-export const roleEnum = pgEnum("role", ["branch", "zonal_head", "admin"])
-export const actionEnum = pgEnum("action", ["view", "download", "upload", "delete"])
-export const changeTypeEnum = pgEnum("change_type", ["insert", "update", "delete"])
+export const roleEnum = ["branch", "zonal_head", "admin"] as const
+export const actionEnum = ["view", "download", "upload", "delete"] as const
+export const changeTypeEnum = ["insert", "update", "delete"] as const
 
-export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
-  role: roleEnum("role").notNull().default("branch"),
+  role: text("role", { enum: roleEnum }).notNull().default("branch"),
   zone: text("zone"),
   branch: text("branch"),
-  canUpload: boolean("can_upload").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  canUpload: integer("can_upload", { mode: "boolean" }).default(false),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP").notNull(),
 })
 
-export const documents = pgTable("documents", {
-  id: uuid("id").defaultRandom().primaryKey(),
+// DOCUMENTS
+export const documents = sqliteTable("documents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   filename: text("filename").notNull(),
   originalFilename: text("original_filename").notNull(),
   branch: text("branch").notNull(),
   zone: text("zone").notNull(),
-  year: text('year'),
-  filetype: text('filetype'),
-  type: text('type'),
-  uploadedBy: uuid("uploaded_by")
-    .references(() => users.id, { onDelete: "set null" })
-    .default(null),
+  year: text("year"),
+  filetype: text("filetype"),
+  type: text("type"),
+  uploadedBy: integer("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   r2Key: text("r2_key").notNull(),
   iv: text("iv").notNull(),
   tag: text("tag").notNull(),
-  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  uploadedAt: text("uploaded_at").default("CURRENT_TIMESTAMP").notNull(),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP").notNull(),
 })
 
-export const accessLogs = pgTable("access_logs", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  userId: uuid("user_id")
-    .references(() => users.id, { onDelete: "cascade" })
-    .notNull(),
-  fileId: uuid("file_id")
-    .references(() => documents.id, { onDelete: "cascade" })
-    .notNull(),
-  action: actionEnum("action").notNull(),
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
+// ACCESS LOGS
+export const accessLogs = sqliteTable("access_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fileId: integer("file_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  action: text("action", { enum: actionEnum }).notNull(),
+  timestamp: text("timestamp").default("CURRENT_TIMESTAMP").notNull(),
 })
 
-export const changeLog = pgTable("change_log", {
-  id: serial("id").primaryKey(),
-  documentId: uuid("document_id")
-    .references(() => documents.id, { onDelete: "cascade" })
-    .notNull(),
-  changeType: changeTypeEnum("change_type").notNull(),
-  changedAt: timestamp("changed_at").defaultNow().notNull(),
+// CHANGE LOG
+export const changeLog = sqliteTable("change_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  documentId: integer("document_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
+  changeType: text("change_type", { enum: changeTypeEnum }).notNull(),
+  changedAt: text("changed_at").default("CURRENT_TIMESTAMP").notNull(),
 })
 
+// RELATIONS
 export const usersRelations = relations(users, ({ many }) => ({
   documents: many(documents),
   accessLogs: many(accessLogs),
@@ -88,28 +92,28 @@ export const changeLogRelations = relations(changeLog, ({ one }) => ({
   }),
 }))
 
-export const verificationTokens = pgTable("verification_tokens", {
-  id: uuid("id").defaultRandom().primaryKey(),
+// VERIFICATION TOKENS
+export const verificationTokens = sqliteTable("verification_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull(),
   token: text("token").notNull(),
-  expires: timestamp("expires").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expires: text("expires").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
 })
 
-// make a tabel for settings
-export const settings = pgTable("settings", {
-  id: serial("id").primaryKey(),
+// SETTINGS TABLE
+export const settings = sqliteTable("settings", {
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP").notNull(),
 })
 
-
-export const branch = pgTable("branch", {
-  id: serial("id").primaryKey(),
-  name: text('name').notNull().unique(),
-  zone: text('zone').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+// BRANCH TABLE
+export const branch = sqliteTable("branch", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  zone: text("zone").notNull(),
+  createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
+  updatedAt: text("updated_at").default("CURRENT_TIMESTAMP").notNull(),
 })

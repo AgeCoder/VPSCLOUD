@@ -7,7 +7,7 @@ export const actionEnumValues = ["view", "download", "upload", "delete"] as cons
 export const changeTypeEnumValues = ["insert", "update", "delete"] as const
 
 export const users = sqliteTable("users", {
-  id: text("id").primaryKey(),
+  id: integer("id").primaryKey(),
   email: text("email").notNull().unique(),
   role: text("role", { enum: roleEnumValues }).notNull().default("branch"),
   zone: text("zone"),
@@ -18,7 +18,7 @@ export const users = sqliteTable("users", {
 })
 
 export const documents = sqliteTable("documents", {
-  id: text("id").primaryKey(),
+  id: integer("id").primaryKey(),
   filename: text("filename").notNull(),
   originalFilename: text("original_filename").notNull(),
   branch: text("branch").notNull(),
@@ -26,7 +26,9 @@ export const documents = sqliteTable("documents", {
   year: text('year'),
   filetype: text('filetype'),
   type: text('type'),
-  uploadedBy: text("uploaded_by"),
+  uploadedBy: integer("uploaded_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
   r2Key: text("r2_key").notNull(),
   iv: text("iv").notNull(),
   tag: text("tag").notNull(),
@@ -35,22 +37,28 @@ export const documents = sqliteTable("documents", {
 })
 
 export const accessLogs = sqliteTable("access_logs", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull(),
-  fileId: text("file_id").notNull(),
+  id: integer("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  fileId: integer("file_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
   action: text("action", { enum: actionEnumValues }).notNull(),
   timestamp: text("timestamp").notNull(),
 })
 
 export const changeLog = sqliteTable("change_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  documentId: text("document_id").notNull(),
+  documentId: integer("document_id")
+    .notNull()
+    .references(() => documents.id, { onDelete: "cascade" }),
   changeType: text("change_type", { enum: changeTypeEnumValues }).notNull(),
   changedAt: text("changed_at").notNull(),
 })
 
 export const verificationTokens = sqliteTable("verification_tokens", {
-  id: text("id").primaryKey(),
+  id: integer("id").primaryKey(),
   email: text("email").notNull(),
   token: text("token").notNull(),
   expires: text("expires").notNull(),
@@ -87,7 +95,11 @@ export const usersRelations = relations(users, ({ many }) => ({
   accessLogs: many(accessLogs),
 }))
 
-export const documentsRelations = relations(documents, ({ many }) => ({
+export const documentsRelations = relations(documents, ({ one, many }) => ({
+  uploadedBy: one(users, {
+    fields: [documents.uploadedBy],
+    references: [users.id],
+  }),
   accessLogs: many(accessLogs),
   changeLogs: many(changeLog),
 }))

@@ -36,7 +36,7 @@ export async function DELETE(
         const existingUser = await db
             .select()
             .from(users)
-            .where(eq(users.id, userId))
+            .where(eq(users.id, Number(userId)))
 
         if (existingUser.length === 0) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -46,30 +46,30 @@ export async function DELETE(
         await db
             .update(documents)
             .set({ uploadedBy: session.user.id })
-            .where(eq(documents.uploadedBy, userId))
+            .where(eq(documents.uploadedBy, Number(userId)))
 
         // Now delete the user
         await db
             .delete(users)
-            .where(eq(users.id, userId))
+            .where(eq(users.id, Number(userId)))
 
         if (session.user.role == 'admin') {
 
             const existingUser = await dblocal
                 .select()
                 .from(loacaluser)
-                .where(eq(loacaluser.id, userId))
+                .where(eq(loacaluser.id, Number(userId)))
 
             if (existingUser.length > 0) {
 
                 await dblocal
                     .update(localdocuments)
                     .set({ uploadedBy: session.user.id })
-                    .where(eq(documents.uploadedBy, userId))
+                    .where(eq(documents.uploadedBy, Number(userId)))
 
                 await dblocal
                     .delete(loacaluser)
-                    .where(eq(loacaluser.id, userId))
+                    .where(eq(loacaluser.id, Number(userId)))
             }
         }
 

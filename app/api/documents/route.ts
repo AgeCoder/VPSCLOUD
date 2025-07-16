@@ -10,7 +10,6 @@ import { auth } from "@/lib/auth"
 export async function GET(req: NextRequest) {
   try {
     const session = await auth()
-
     if (!session) {
       return NextResponse.redirect(new URL("/login", req.url))
     }
@@ -21,9 +20,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const accessibleBranches = getAccessibleBranches(role, zone, branch)
-
-
+    const accessibleBranches = await getAccessibleBranches(role, zone, branch)
 
     // Get documents from local DB (fallback to server if local fails)
     let userDocuments

@@ -7,7 +7,7 @@ import { SyncButton } from './SyncButton'
 import { SyncService } from '@/lib/syncDocuments'
 
 const SYNC_COOLDOWN_MIN = 3
-const AUTO_SYNC_INTERVAL_MIN = 30
+const AUTO_SYNC_INTERVAL_MIN = 1440
 
 export default async function Syncer() {
     const session = await auth()
@@ -36,7 +36,8 @@ export default async function Syncer() {
             const syncService = new SyncService(session.user)
             if (session.user.role !== 'admin') {
                 await syncService.syncAll({
-                    tables: ['users', 'branch', 'documents', 'settings']
+                    fullSync: false,
+                    tables: ['documents', 'users', 'branch', 'settings']
                 })
             } else {
                 await syncService.syncAll({ fullSync: true })
@@ -54,5 +55,6 @@ export default async function Syncer() {
         }
     }
 
-    return <SyncButton canSync={canForceSync} />
+    // app/components/Syncer.tsx
+    return <SyncButton canSync={canForceSync} timeLeftMs={diffInMinutes < SYNC_COOLDOWN_MIN ? SYNC_COOLDOWN_MIN * 60 * 1000 - (diffInMinutes * 60 * 1000) : 0} />
 }

@@ -1,19 +1,22 @@
-import { getBranchesByZone } from "./zones"
+// adjust path as needed
 
-export function canAccessDocument(
+import { getAllBranches, getBranchesByZone } from "./zones"
+
+// ⚠️ Must be async because zone data is now from DB
+export async function canAccessDocument(
   userRole: string,
   userZone: string | null,
   userBranch: string | null,
   documentBranch: string,
-  documentZone: string,
-): boolean {
+  documentZone: string
+): Promise<boolean> {
   switch (userRole) {
     case "admin":
       return true
 
     case "zonal_head":
       if (!userZone) return false
-      const zoneBranches = getBranchesByZone(userZone)
+      const zoneBranches = await getBranchesByZone(userZone)
       return zoneBranches.includes(documentBranch)
 
     case "branch":
@@ -24,13 +27,18 @@ export function canAccessDocument(
   }
 }
 
-export function getAccessibleBranches(userRole: string, userZone: string | null, userBranch: string | null): string[] {
+// ✅ Async version to get branches the user can access
+export async function getAccessibleBranches(
+  userRole: string,
+  userZone: string | null,
+  userBranch: string | null
+): Promise<string[]> {
   switch (userRole) {
     case "admin":
-      return Object.values(require("./zones").ZONE_MAPPING).flat()
+      return await getAllBranches()
 
     case "zonal_head":
-      return userZone ? getBranchesByZone(userZone) : []
+      return userZone ? await getBranchesByZone(userZone) : []
 
     case "branch":
       return userBranch ? [userBranch] : []

@@ -20,7 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export default function RestoreDatabase() {
     const [file, setFile] = useState<File | null>(null);
@@ -28,13 +28,12 @@ export default function RestoreDatabase() {
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
-    const { toast } = useToast()
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!file) {
-            toast({
-                title: 'Missing File',
+            toast('Missing File', {
                 description: 'Please select a database file before proceeding.',
             });
             return;
@@ -59,8 +58,7 @@ export default function RestoreDatabase() {
                     throw new Error(await res.text());
                 }
 
-                toast({
-                    title: 'Database Restored',
+                toast('Database Restored', {
                     description: 'The database has been successfully replaced.',
                 });
 
@@ -71,8 +69,7 @@ export default function RestoreDatabase() {
                 }
                 router.refresh();
             } catch (err) {
-                toast({
-                    title: 'Restore Failed',
+                toast('Restore Failed', {
                     description: err instanceof Error ? err.message : 'An unknown error occurred.',
                 });
             }

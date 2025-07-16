@@ -101,7 +101,7 @@ export class SyncService {
             .get();
 
         return {
-            lastSync: result?.lastSync || new Date(0).toISOString(),
+            lastSync: result?.lastSync || new Date().toISOString(),
             lastChangeId: result?.lastChangeId ?? 0
         };
     }
@@ -141,14 +141,14 @@ export class SyncService {
             .where(
                 fullSync
                     ? baseConditions.length ? and(...baseConditions) : undefined
-                    : and(...baseConditions, gt(serverUsers.updatedAt, new Date(lastSync)))
+                    : and(...baseConditions, gt(serverUsers.updatedAt, new Date(lastSync).toISOString()))
             );
 
         // Get local IDs for comparison
         const localIds = (await dblocal.select({ id: localUsers.id }).from(localUsers).all())
             .map(row => row.id);
 
-        const serverIds = serverData.map(row => row.id.toString());
+        const serverIds = serverData.map(row => row.id);
 
         // Identify records to delete (exist locally but not on server)
         const toDelete = localIds.filter(id => !serverIds.includes(id));
@@ -160,7 +160,7 @@ export class SyncService {
 
         // Process upserts
         const toUpsert = serverData.filter(row =>
-            !localIds.includes(row.id.toString()) ||
+            !localIds.includes(row.id) ||
             fullSync // Always upsert in full sync mode
         );
 
@@ -168,13 +168,13 @@ export class SyncService {
             await dblocal
                 .insert(localUsers)
                 .values({
-                    id: row.id.toString(),
+                    id: row.id,
                     email: row.email,
                     role: row.role,
                     zone: row.zone || null,
                     branch: row.branch || null,
-                    createdAt: row.createdAt.toISOString(),
-                    updatedAt: String(row.updatedAt.toISOString())
+                    createdAt: row.createdAt,
+                    updatedAt: String(row.updatedAt)
                 })
                 .onConflictDoUpdate({
                     target: localUsers.id,
@@ -183,7 +183,7 @@ export class SyncService {
                         role: row.role,
                         zone: row.zone || null,
                         branch: row.branch || null,
-                        updatedAt: String(row.updatedAt.toISOString())
+                        updatedAt: String(row.updatedAt)
                     }
                 });
         }
@@ -217,14 +217,14 @@ export class SyncService {
             .where(
                 fullSync
                     ? baseConditions.length ? and(...baseConditions) : undefined
-                    : and(...baseConditions, gt(serverDocuments.updatedAt, new Date(lastSync)))
+                    : and(...baseConditions, gt(serverDocuments.updatedAt, new Date(lastSync).toISOString()))
             );
 
         // Get local IDs for comparison
         const localIds = (await dblocal.select({ id: localDocuments.id }).from(localDocuments).all())
             .map(row => row.id);
 
-        const serverIds = serverData.map(row => row.id.toString());
+        const serverIds = serverData.map(row => row.id);
 
         // Identify records to delete
         const toDelete = localIds.filter(id => !serverIds.includes(id));
@@ -236,7 +236,7 @@ export class SyncService {
 
         // Process upserts
         const toUpsert = serverData.filter(row =>
-            !localIds.includes(row.id.toString()) ||
+            !localIds.includes(row.id) ||
             fullSync // Always upsert in full sync mode
         );
 
@@ -244,7 +244,7 @@ export class SyncService {
             await dblocal
                 .insert(localDocuments)
                 .values({
-                    id: row.id.toString(),
+                    id: row.id,
                     filename: row.filename,
                     originalFilename: row.originalFilename,
                     branch: row.branch,
@@ -252,12 +252,12 @@ export class SyncService {
                     year: row.year || null,
                     filetype: row.filetype || null,
                     type: row.type || null,
-                    uploadedBy: row.uploadedBy?.toString() || null,
+                    uploadedBy: row.uploadedBy || null,
                     r2Key: row.r2Key,
                     iv: row.iv,
                     tag: row.tag,
-                    uploadedAt: row.uploadedAt.toISOString(),
-                    updatedAt: row.updatedAt.toISOString()
+                    uploadedAt: row.uploadedAt,
+                    updatedAt: row.updatedAt
                 })
                 .onConflictDoUpdate({
                     target: localDocuments.id,
@@ -269,11 +269,11 @@ export class SyncService {
                         year: row.year || null,
                         filetype: row.filetype || null,
                         type: row.type || null,
-                        uploadedBy: row.uploadedBy?.toString() || null,
+                        uploadedBy: row.uploadedBy || null,
                         r2Key: row.r2Key,
                         iv: row.iv,
                         tag: row.tag,
-                        updatedAt: row.updatedAt.toISOString()
+                        updatedAt: row.updatedAt
                     }
                 });
         }
@@ -304,7 +304,7 @@ export class SyncService {
                         : undefined
             );
 
-        const docIds = accessibleDocs.map(d => d.id.toString());
+        const docIds = accessibleDocs.map(d => d.id);
 
         // Get server data
         const serverData = await db
@@ -313,14 +313,14 @@ export class SyncService {
             .where(
                 and(
                     inArray(serverAccessLogs.fileId, accessibleDocs.map(d => d.id)),
-                    fullSync ? undefined : gt(serverAccessLogs.timestamp, new Date(lastSync))
+                    fullSync ? undefined : gt(serverAccessLogs.timestamp, new Date(lastSync).toISOString())
                 ))
 
         // Get local IDs for comparison
         const localIds = (await dblocal.select({ id: localAccessLogs.id }).from(localAccessLogs).all())
             .map(row => row.id);
 
-        const serverIds = serverData.map(row => row.id.toString());
+        const serverIds = serverData.map(row => row.id);
 
         // Identify records to delete
         const toDelete = localIds.filter(id => !serverIds.includes(id));
@@ -332,7 +332,7 @@ export class SyncService {
 
         // Process upserts
         const toUpsert = serverData.filter(row =>
-            !localIds.includes(row.id.toString()) ||
+            !localIds.includes(row.id) ||
             fullSync
         );
 
@@ -340,19 +340,19 @@ export class SyncService {
             await dblocal
                 .insert(localAccessLogs)
                 .values({
-                    id: row.id.toString(),
-                    userId: row.userId.toString(),
-                    fileId: row.fileId.toString(),
+                    id: row.id,
+                    userId: row.userId,
+                    fileId: row.fileId,
                     action: row.action,
-                    timestamp: row.timestamp.toISOString()
+                    timestamp: row.timestamp
                 })
                 .onConflictDoUpdate({
                     target: localAccessLogs.id,
                     set: {
-                        userId: row.userId.toString(),
-                        fileId: row.fileId.toString(),
+                        userId: row.userId,
+                        fileId: row.fileId,
                         action: row.action,
-                        timestamp: row.timestamp.toISOString()
+                        timestamp: row.timestamp
                     }
                 });
         }
@@ -394,7 +394,7 @@ export class SyncService {
                         ? undefined
                         : lastChangeId
                             ? gt(serverChangeLog.id, lastChangeId)
-                            : gt(serverChangeLog.changedAt, new Date(lastSync))
+                            : gt(serverChangeLog.changedAt, new Date(lastSync).toISOString())
                 )
             );
 
@@ -404,9 +404,9 @@ export class SyncService {
                 .insert(localChangeLog)
                 .values({
                     id: row.id,
-                    documentId: row.documentId.toString(),
+                    documentId: row.documentId,
                     changeType: row.changeType,
-                    changedAt: row.changedAt.toISOString()
+                    changedAt: row.changedAt
                 })
                 .onConflictDoNothing();
         }
@@ -434,7 +434,7 @@ export class SyncService {
             .where(
                 and(
                     eq(serverVerificationTokens.email, this.user.email),
-                    fullSync ? undefined : gt(serverVerificationTokens.createdAt, new Date(lastSync))
+                    fullSync ? undefined : gt(serverVerificationTokens.createdAt, new Date(lastSync).toISOString())
                 )
             );
 
@@ -442,7 +442,7 @@ export class SyncService {
         const localIds = (await dblocal.select({ id: localVerificationTokens.id }).from(localVerificationTokens).all())
             .map(row => row.id);
 
-        const serverIds = serverData.map(row => row.id.toString());
+        const serverIds = serverData.map(row => row.id);
 
         // Identify records to delete
         const toDelete = localIds.filter(id => !serverIds.includes(id));
@@ -454,7 +454,7 @@ export class SyncService {
 
         // Process upserts
         const toUpsert = serverData.filter(row =>
-            !localIds.includes(row.id.toString()) ||
+            !localIds.includes(row.id) ||
             fullSync
         );
 
@@ -462,19 +462,19 @@ export class SyncService {
             await dblocal
                 .insert(localVerificationTokens)
                 .values({
-                    id: row.id.toString(),
+                    id: row.id,
                     email: row.email,
                     token: row.token,
-                    expires: row.expires.toISOString(),
-                    createdAt: row.createdAt.toISOString()
+                    expires: row.expires,
+                    createdAt: row.createdAt
                 })
                 .onConflictDoUpdate({
                     target: localVerificationTokens.id,
                     set: {
                         email: row.email,
                         token: row.token,
-                        expires: row.expires.toISOString(),
-                        createdAt: row.createdAt.toISOString()
+                        expires: row.expires,
+                        createdAt: row.createdAt
                     }
                 });
         }
@@ -498,7 +498,7 @@ export class SyncService {
             .select()
             .from(serverSettings)
             .where(
-                fullSync ? undefined : gt(serverSettings.updatedAt, new Date(lastSync))
+                fullSync ? undefined : gt(serverSettings.updatedAt, new Date(lastSync).toISOString())
             );
 
         // Process upserts (settings don't need to be deleted)
@@ -508,14 +508,14 @@ export class SyncService {
                 .values({
                     key: row.key,
                     value: row.value,
-                    createdAt: row.createdAt.toISOString(),
-                    updatedAt: row.updatedAt.toISOString()
+                    createdAt: row.createdAt,
+                    updatedAt: row.updatedAt
                 })
                 .onConflictDoUpdate({
                     target: localSettings.key,
                     set: {
                         value: row.value,
-                        updatedAt: row.updatedAt.toISOString()
+                        updatedAt: row.updatedAt
                     }
                 });
         }
@@ -542,30 +542,28 @@ export class SyncService {
                 fullSync
                     ? undefined
                     : this.user.role === 'zonal_head'
-                        ? and(
-                            gt(serverBranch.updatedAt, new Date(lastSync)),
-                            eq(serverBranch.zone, String(this.user.zone))
-                        )
-                        : gt(serverBranch.updatedAt, new Date(lastSync))
+                        ?
+                        eq(serverBranch.zone, String(this.user.zone))
+                        : gt(serverBranch.updatedAt, new Date(lastSync).toISOString())
             );
 
         // Get local IDs for comparison
         const localIds = (await dblocal.select({ id: localBranch.id }).from(localBranch).all())
-            .map(row => row.id.toString());
+            .map(row => row.id);
 
-        const serverIds = serverData.map(row => row.id.toString());
+        const serverIds = serverData.map(row => row.id);
 
         // Identify records to delete
         const toDelete = localIds.filter(id => !serverIds.includes(id));
         if (toDelete.length > 0) {
             await dblocal
                 .delete(localBranch)
-                .where(inArray(localBranch.id, toDelete.map(id => parseInt(id))));
+                .where(inArray(localBranch.id, toDelete));
         }
 
         // Process upserts
         const toUpsert = serverData.filter(row =>
-            !localIds.includes(row.id.toString()) ||
+            !localIds.includes(row.id) ||
             fullSync
         );
 
@@ -576,15 +574,15 @@ export class SyncService {
                     id: row.id,
                     name: row.name,
                     zone: row.zone,
-                    createdAt: row.createdAt.toISOString(),
-                    updatedAt: row.updatedAt.toISOString()
+                    createdAt: row.createdAt,
+                    updatedAt: row.updatedAt
                 })
                 .onConflictDoUpdate({
                     target: localBranch.id,
                     set: {
                         name: row.name,
                         zone: row.zone,
-                        updatedAt: row.updatedAt.toISOString()
+                        updatedAt: row.updatedAt
                     }
                 });
         }

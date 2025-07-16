@@ -2,7 +2,6 @@ import React from 'react'
 import { UserMenu, UserMenuProps } from '../user-menu'
 import { ModeToggle } from '../ModeToggle'
 import Syncer from '../Sync/Syncer'
-import { FileText } from 'lucide-react'
 import Image from 'next/image'
 
 export default function Navbar({ user }: UserMenuProps) {

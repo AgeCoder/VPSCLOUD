@@ -6,7 +6,6 @@ import { UploadForm } from "@/components/upload-form"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UploadCloud, FileSearch } from "lucide-react"
-import Navbar from "./layout/Navbar"
 
 interface User {
   id: string

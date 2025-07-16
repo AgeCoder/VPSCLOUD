@@ -7,7 +7,6 @@ import {
     Printer,
     RotateCw,
     RotateCcw,
-    Download,
     Maximize,
     Minimize,
     X

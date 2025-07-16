@@ -25,13 +25,13 @@ export async function DELETE(
         }
 
         // Step 2: Fetch document from DB
-        const [document] = await db.select().from(documents).where(eq(documents.id, id))
+        const [document] = await db.select().from(documents).where(eq(documents.id, Number(id)))
         if (!document) {
             return NextResponse.json({ error: "Document not found" }, { status: 404 })
         }
 
         // Step 3: Permission check
-        if (!canAccessDocument(
+        if (! await canAccessDocument(
             session.user.role,
             session.user.zone,
             session.user.branch,
@@ -45,16 +45,15 @@ export async function DELETE(
         await db.insert(changeLog).values({
             documentId: document.id,
             changeType: "delete",
-            changedAt: new Date()
+            changedAt: new Date().toISOString()
         })
 
         // Step 5: Log access
         await db.insert(accessLogs).values({
-            id: crypto.randomUUID(),
             userId: session.user.id,
             fileId: document.id,
             action: "delete",
-            timestamp: new Date()
+            timestamp: new Date().toISOString()
         })
 
         // Step 6: Delete from R2
@@ -69,12 +68,12 @@ export async function DELETE(
         }
 
         // Step 7: Delete from DB
-        await db.delete(documents).where(eq(documents.id, id))
+        await db.delete(documents).where(eq(documents.id, Number(id)))
 
         if (session.user.role == 'admin' || session.user.branch == document.branch || document.zone == session.user.zone) {
-            const exists = await dblocal.select().from(localdocuments).where(eq(localdocuments.id, id))
+            const exists = await dblocal.select().from(localdocuments).where(eq(localdocuments.id, Number(id)))
             if (exists.length > 0) {
-                await dblocal.delete(localdocuments).where(eq(localdocuments.id, id))
+                await dblocal.delete(localdocuments).where(eq(localdocuments.id, Number(id)))
             }
         }
 

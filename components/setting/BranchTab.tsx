@@ -110,19 +110,19 @@ export function BranchTab({ branches, session }: BranchTabProps) {
                                 {session.user.role === 'admin' && (
                                     <TableCell className="py-2 px-4 text-sm space-x-2">
                                         {/* Optional: Update branch (show if needed) */}
-                                        {/* <form action={updateBranchAction} className="inline-flex gap-2">
-              <Input type="hidden" name="name" value={branch.name} />
-              <Input
-                type="text"
-                name="zone"
-                defaultValue={branch.zone}
-                required
-                className="h-8 text-sm"
-              />
-              <Button type="submit" variant="outline" size="sm">
-                Update
-              </Button>
-            </form> */}
+                                        <form action={updateBranchAction} className="inline-flex gap-2">
+                                            <Input type="hidden" name="name" value={branch.name} />
+                                            <Input
+                                                type="text"
+                                                name="zone"
+                                                defaultValue={branch.zone}
+                                                required
+                                                className="h-8 text-sm"
+                                            />
+                                            <Button type="submit" variant="outline" size="sm">
+                                                Update
+                                            </Button>
+                                        </form>
 
                                         {/* Delete branch */}
                                         <form action={deleteBranchAction} className="inline-block">

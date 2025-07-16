@@ -85,17 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 })
 
 // Custom authentication functions
-export async function createUser(email: string) {
-  const [user] = await db
-    .insert(users)
-    .values({
-      email,
-      role: "branch", // Default role
-    })
-    .returning()
 
-  return user
-}
 
 export async function getUserByEmail(email: string) {
   const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
@@ -104,7 +94,7 @@ export async function getUserByEmail(email: string) {
 
 export async function createVerificationToken(email: string) {
   const token = generateOTP()
-  const expires = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+  const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
 
   // Delete any existing tokens for this email
   await db.delete(verificationTokens).where(eq(verificationTokens.email, email))
@@ -129,7 +119,7 @@ export async function verifyOTP(email: string, token: string) {
       and(
         eq(verificationTokens.email, email),
         eq(verificationTokens.token, token),
-        gt(verificationTokens.expires, new Date()),
+        gt(verificationTokens.expires, new Date().toISOString()),
       ),
     )
     .limit(1)

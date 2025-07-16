@@ -1,32 +1,46 @@
-export const ZONE_MAPPING = {
-  "Zone 1": ["TAKALI", "DHAVALI", "KHANDERAJURI", "MALGAON", "BEDAG", "MIRAJ", "SALGARE", "MAISHAL", "ARAG"],
-  "Zone 2": [
-    "SANGLI",
-    "KUPWAD",
-    "MALWADI",
-    "DUDHGAON",
-    "GAONBHAG",
-    "ASHATA",
-    "PA. NAGAR",
-    "KASABEDIGRAJ",
-    "Vishrambag",
-  ],
-  "Zone 3": ["SAMDOLI", "BRAMHNAL", "KAVLAPUR", "KAVTHE AKAND", "NANDRE", "BHOSE", "BHILVADI", "BURLI"],
-}
+import { dblocal } from "@/lib/localdb"; // adjust based on your project structure
+import { branch } from "@/lib/localdb/schema";
+import { eq } from "drizzle-orm";
 
-export function getBranchZone(branch: string): string | null {
-  for (const [zone, branches] of Object.entries(ZONE_MAPPING)) {
-    if (branches.includes(branch)) {
-      return zone
+// 🔁 Fetch entire zone → branch mapping
+export async function getZoneMapping(): Promise<Record<string, string[]>> {
+  const data = await dblocal.select().from(branch);
+
+  const zoneMap: Record<string, string[]> = {};
+
+  for (const row of data) {
+    if (!zoneMap[row.zone]) {
+      zoneMap[row.zone] = [];
     }
+    zoneMap[row.zone].push(row.name);
   }
-  return null
+
+  return zoneMap;
 }
 
-export function getAllBranches(): string[] {
-  return Object.values(ZONE_MAPPING).flat()
+// 🔁 Get zone name for a specific branch
+export async function getBranchZone(branchName: string): Promise<string | null> {
+  const result = await dblocal
+    .select({ zone: branch.zone })
+    .from(branch)
+    .where(eq(branch.name, branchName));
+
+  return result[0]?.zone || null;
 }
 
-export function getBranchesByZone(zone: string): string[] {
-  return ZONE_MAPPING[zone as keyof typeof ZONE_MAPPING] || []
+// 🔁 Get all branches across all zones
+export async function getAllBranches(): Promise<string[]> {
+  const data = await dblocal.select({ name: branch.name }).from(branch);
+  return data.map((b) => b.name);
+}
+
+// 🔁 Get all branches for a given zone
+export async function getBranchesByZone(zone: string): Promise<string[]> {
+
+  const data = await dblocal
+    .select({ name: branch.name })
+    .from(branch)
+    .where(eq(branch.zone, zone))
+
+  return data.map((b) => b.name);
 }

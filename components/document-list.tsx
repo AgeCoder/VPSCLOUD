@@ -27,7 +27,8 @@ import {
 import { Label } from "./ui/label"
 import { SearchBar } from "./search-bar"
 
-interface Document {
+
+export interface Document {
   id: string
   filename: string
   originalFilename: string

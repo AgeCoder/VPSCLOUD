@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { useToast } from "@/hooks/use-toast"
+
 import { Database, Loader2 } from "lucide-react"
 import {
   AlertDialog,
@@ -17,9 +17,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import RestoreDatabase from "./restore-db"
+import { toast } from "sonner"
 
 export function BackupSettings() {
-  const { toast } = useToast()
+
   const [isExporting, setIsExporting] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
 
@@ -47,14 +48,11 @@ export function BackupSettings() {
       document.body.removeChild(a)
       window.URL.revokeObjectURL(url)
 
-      toast({
-        title: "Backup successful",
+      toast("Backup successful", {
         description: "Database has been backed up successfully.",
       })
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Backup failed",
+      toast("Backup failed", {
         description: error instanceof Error ? error.message : "An error occurred during backup.",
       })
     } finally {
@@ -76,14 +74,11 @@ export function BackupSettings() {
         throw new Error("Reset failed")
       }
 
-      toast({
-        title: "Database reset successful",
+      toast("Database reset successful", {
         description: "The database has been reset.",
       })
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Database reset failed",
+      toast("Database reset failed", {
         description: error instanceof Error ? error.message : "An error occurred while resetting the database.",
       })
     } finally {

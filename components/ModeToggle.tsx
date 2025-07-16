@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronLeft, Moon, Settings, Sun } from 'lucide-react'
+import { ChevronLeft, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'

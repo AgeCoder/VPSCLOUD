@@ -6,7 +6,6 @@ import { dblocal } from '@/lib/localdb'
 import { auth } from '@/lib/auth'
 import { desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { branch as localBranch, users as localUsers, settings as localSettings } from '@/lib/localdb/schema'
 import { branch, users, settings } from '@/lib/db/schema'
 import { Session } from '@/types/types'
@@ -124,7 +123,6 @@ export async function updateBranch(formData: FormData) {
 
     const name = formData.get('branch') as string
     const zone = formData.get('zone') as string
-    console.log(name, zone);
 
     if (!name || !zone) {
         return { success: false, message: 'Name and zone are required' }
@@ -180,7 +178,7 @@ export async function updateUser(formData: FormData) {
                 canUpload,
                 updatedAt: String(new Date().toISOString())
             })
-            .where(eq(localUsers.id, userId))
+            .where(eq(localUsers.id, Number(userId)))
             .run()
 
         // Update in main DB
@@ -190,9 +188,9 @@ export async function updateUser(formData: FormData) {
                 branch: branchName || null,
                 zone: zone || null,
                 canUpload,
-                updatedAt: new Date()
+                updatedAt: new Date().toISOString()
             })
-            .where(eq(users.id, userId))
+            .where(eq(users.id, Number(userId)))
 
         revalidatePath('/settings')
         return { success: true, message: 'User updated successfully' }
@@ -281,11 +279,9 @@ export async function addSetting(formData: FormData) {
     const key = formData.get('finalKey') as string
     let value = formData.get('value') as string
     const isDocumentType = formData.get('isDocumentType') === 'on'
-    console.log(key);
     if (isDocumentType && value != 'DOC_TYPE_') {
         value = 'DOC_TYPE_'
     }
-    console.log(value);
 
     try {
         const existing = await db.select()

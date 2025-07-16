@@ -37,8 +37,14 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' } | null>(null)
-  const [branch, setBranch] = useState<string | null>(user.role !== "admin" ? user.branch || null : null)
-  const [zone, setZone] = useState<string | null>(user.role !== "admin" ? user.zone || null : null)
+  const [zone, setZone] = useState<string | null>(
+    user.role === "zonal_head" || user.role === "admin" ? user.zone || null : null
+  )
+
+  const [branch, setBranch] = useState<string | null>(
+    user.role === "zonal_head" || user.role === "admin" ? user.branch || null : null
+  )
+
   const [year, setYear] = useState<string>(new Date().getFullYear().toString())
   const [docTypeLocal, setDocTypeLocal] = useState<string>(docType?.[0] ?? '')
   const [fileType, setFileType] = useState<string>("")
@@ -151,7 +157,13 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
       if (user.role === "admin") {
         formData.append("branch", branch!)
         formData.append("zone", zone!)
-      } else {
+      }
+      else if (user.role === "zonal_head") {
+
+        formData.append("branch", branch!)
+        formData.append("zone", zone!)
+      }
+      else {
         formData.append("branch", user.branch || "")
         formData.append("zone", user.zone || "")
       }
@@ -207,12 +219,12 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
   return (
     <div className="space-y-6 mb-20">
       <p className="text-sm text-muted-foreground">
-        {user.role === "admin" ?
+        {(user.role === "admin" || user.role === "zonal_head") ?
           "You are uploading as an administrator" :
           `You are uploading to ${user.branch || 'your branch'} in ${user.zone || 'your zone'}`}
       </p>
 
-      {user.role === "admin" && (
+      {(user.role === "admin" || user.role === "zonal_head") && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="zone">Zone *</Label>
@@ -220,8 +232,9 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
               value={zone || ""}
               onValueChange={(value) => {
                 setZone(value)
-                setBranch(null) // Reset branch when zone changes
+                setBranch(null)
               }}
+              disabled={user.role === "zonal_head"} // Disable for zonal head
             >
               <SelectTrigger id="zone" className={errors.zone ? "border-destructive" : ""}>
                 <SelectValue placeholder="Select Zone" />

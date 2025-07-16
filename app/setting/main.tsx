@@ -17,13 +17,15 @@ interface SettingsPageProps {
     branches: any[]
     users: any[]
     settings: any[]
+    ZONE_MAPPING: Record<string, string[]>
 }
 
 export default function SettingsPage({
     session,
     branches,
     users,
-    settings
+    settings,
+    ZONE_MAPPING
 }: SettingsPageProps) {
     const [activeTab, setActiveTab] = useState('branches')
 
@@ -61,7 +63,7 @@ export default function SettingsPage({
                 usersCount={users.length} />
 
             {activeTab === 'branches' && <BranchTab branches={branches} session={session} />}
-            {activeTab === 'users' && <UserTab users={users} branches={branches} session={session} />}
+            {activeTab === 'users' && <UserTab users={users} branches={branches} session={session} ZONE_MAPPING={ZONE_MAPPING} />}
             {activeTab === 'settings' && <SettingsTab settings={settings} />}
             {activeTab === 'Backup' && <BackupSettings />}
         </div>
