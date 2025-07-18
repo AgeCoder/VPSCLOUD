@@ -34,7 +34,7 @@ export default function SettingsPage({
     }
 
     return (
-        <div className="container mx-auto p-4">
+        <div className="container mx-auto p-4 max-w-7xl">
             <div
                 className='flex w-full justify-between items-center'
             >

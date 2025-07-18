@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { users, documents } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import { dblocal } from '@/lib/localdb'
 import { users as loacaluser, documents as localdocuments } from '@/lib/localdb/schema'
 

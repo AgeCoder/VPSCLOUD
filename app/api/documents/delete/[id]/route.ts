@@ -1,15 +1,16 @@
 import fs from 'fs/promises';
 import { type NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
 import { db } from "@/lib/db"
 import { documents, accessLogs, changeLog } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
-import { deleteFromR2 } from "@/lib/r2"
-import { canAccessDocument } from "@/lib/access-control"
+import { deleteFromR2 } from "@/lib/cloudflare/r2"
+
 import path from "path"
 import { existsSync } from "fs"
 import { dblocal } from '@/lib/localdb';
 import { documents as localdocuments } from '@/lib/localdb/schema';
+import { canAccessDocument } from '@/lib/auth/access-control';
 
 export async function DELETE(
     request: NextRequest,
@@ -43,10 +44,12 @@ export async function DELETE(
 
         // Step 4: Create change log entry FIRST
         await db.insert(changeLog).values({
-            documentId: document.id,
-            changeType: "delete",
-            changedAt: new Date().toISOString()
-        })
+            tableName: 'documents',
+            recordId: document.id,
+            changeType: 'delete',
+            changedAt: new Date().toISOString(),
+            changedBy: Number(session.user.id),
+        });
 
         // Step 5: Log access
         await db.insert(accessLogs).values({

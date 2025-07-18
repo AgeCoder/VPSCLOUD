@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
 import { users } from "@/lib/localdb/schema"
 import { dblocal } from "@/lib/localdb"
 

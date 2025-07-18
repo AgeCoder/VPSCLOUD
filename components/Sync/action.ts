@@ -1,10 +1,10 @@
 // app/actions/sync.ts
 'use server'
 
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
+import { SyncService } from '@/lib/doc/syncDocuments'
 import { dblocal } from '@/lib/localdb'
 import { syncMetadata } from '@/lib/localdb/schema'
-import { SyncService } from '@/lib/syncDocuments'
 import { eq } from 'drizzle-orm'
 
 const SYNC_COOLDOWN_MIN = 3
@@ -43,11 +43,15 @@ export async function forceSync(): Promise<void> {
         }
 
         // Perform sync with timeout
-        const syncService = new SyncService(session.user)
-        const syncPromise = session.user.role !== 'admin'
-            ? syncService.syncAll({ tables: ['users', 'branch', 'documents', 'settings'] })
-            : syncService.syncAll({ fullSync: true })
+        const syncService = new SyncService(session.user);
 
+        const isAdmin = session.user.role === 'admin';
+
+        const syncPromise = syncService.syncAll(
+            isAdmin
+                ? { fullSync: false, tables: ['users', 'branch', 'documents', 'settings', 'accessLogs'] }
+                : { fullSync: false, tables: ['users', 'branch', 'documents', 'settings'] }
+        )
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Sync timed out')), MAX_SYNC_DURATION_MS)
         )

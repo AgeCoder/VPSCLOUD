@@ -1,14 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
 
 import { documents, accessLogs, changeLog } from "@/lib/db/schema"
-import { uploadToR2 } from "@/lib/r2"
-import { encryptFile } from "@/lib/encryption"
-import { getBranchZone } from "@/lib/zones"
+import { uploadToR2 } from "@/lib/cloudflare/r2"
+import { getBranchZone } from "@/lib/auth/zones"
 import { v4 as uuidv4 } from "uuid"
 import { db } from "@/lib/db"
 import { dblocal } from "@/lib/localdb"
 import { documents as localdocuments, accessLogs as localaccessLogs, changeLog as localchangeLog } from "@/lib/localdb/schema"
+import { encryptFile } from "@/lib/cloudflare/encryption"
 
 export async function POST(request: NextRequest) {
   try {
@@ -137,14 +137,10 @@ export async function POST(request: NextRequest) {
         userId: session.user.id,
         fileId: document.id,
         action: "upload",
+        timestamp: new Date().toISOString(),
       }).returning()
 
 
-      await db.insert(changeLog).values({
-        documentId: document.id,
-        changeType: "insert",
-        changedAt: new Date().toISOString(),
-      })
 
       if (session.user.role === "admin" || session.user.branch == branch || session.user.zone === zone) {
         await dblocal.insert(localdocuments).values({
@@ -167,14 +163,9 @@ export async function POST(request: NextRequest) {
           id: accessLog[0].id,
           userId: Number(session.user.id),
           fileId: Number(document.id),
-          action: "upload",
+          action: accessLog[0].action,
           timestamp: accessLog[0].timestamp,
         });
-        await dblocal.insert(localchangeLog).values({
-          documentId: document.id,
-          changeType: "insert",
-          changedAt: new Date().toISOString(),
-        })
 
       }
 

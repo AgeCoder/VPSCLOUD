@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createVerificationToken, getUserByEmail, createUser } from "@/lib/auth"
-import { sendOTPEmail } from "@/lib/email"
+import { createVerificationToken, getUserByEmail } from "@/lib/auth/auth"
 import { isValidEmail } from "@/lib/utils"
+import { sendOTPEmail } from "@/lib/email/email"
 
 export async function POST(request: NextRequest) {
   try {

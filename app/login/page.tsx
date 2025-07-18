@@ -1,6 +1,6 @@
 import { LoginForm } from "@/components/login-form"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
 import { redirect } from "next/navigation"
 
 export default async function LoginPage() {

@@ -1,18 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { signOut } from "@/lib/auth"
+import { signOut } from "@/lib/auth/auth"
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
 
-    await signOut()
+    try {
+      await signOut()
+    } catch (error) {
+    }
 
-    const response = NextResponse.json({ success: true })
-    response.cookies.set("session-token", "", {
-      expires: new Date(0),
-      path: "/",
+    return NextResponse.json({
+      message: "Logout successful",
+      status: 200
     })
-
-    return response
   } catch (error) {
     console.error("Logout error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

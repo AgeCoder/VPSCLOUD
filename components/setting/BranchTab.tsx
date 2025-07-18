@@ -88,8 +88,8 @@ export function BranchTab({ branches, session }: BranchTabProps) {
             )}
 
             <Card>
-                <Table className="w-full border rounded-md shadow-sm">
-                    <TableHeader className="">
+                <Table className="w-full border rounded- shadow-sm">
+                    <TableHeader >
                         <TableRow>
                             <TableHead className="text-sm font-medium text-gray-700">
                                 ID
@@ -110,7 +110,7 @@ export function BranchTab({ branches, session }: BranchTabProps) {
                                 {session.user.role === 'admin' && (
                                     <TableCell className="py-2 px-4 text-sm space-x-2">
                                         {/* Optional: Update branch (show if needed) */}
-                                        <form action={updateBranchAction} className="inline-flex gap-2">
+                                        {/* <form action={updateBranchAction} className="inline-flex gap-2">
                                             <Input type="hidden" name="name" value={branch.name} />
                                             <Input
                                                 type="text"
@@ -122,7 +122,7 @@ export function BranchTab({ branches, session }: BranchTabProps) {
                                             <Button type="submit" variant="outline" size="sm">
                                                 Update
                                             </Button>
-                                        </form>
+                                        </form> */}
 
                                         {/* Delete branch */}
                                         <form action={deleteBranchAction} className="inline-block">

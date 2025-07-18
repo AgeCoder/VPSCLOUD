@@ -1,13 +1,12 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, AlertCircle, AlertTriangleIcon } from "lucide-react"
+import { Upload, FileText, AlertCircle, Loader2, AlertTriangle, CheckCircle, Image, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export interface User {
@@ -40,15 +39,18 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
   const [zone, setZone] = useState<string | null>(
     user.role === "zonal_head" || user.role === "admin" ? user.zone || null : null
   )
-
   const [branch, setBranch] = useState<string | null>(
-    user.role === "zonal_head" || user.role === "admin" ? user.branch || null : null
+    user.role === "branch_head" ? user.branch || null : null
   )
-
   const [year, setYear] = useState<string>(new Date().getFullYear().toString())
   const [docTypeLocal, setDocTypeLocal] = useState<string>(docType?.[0] ?? '')
   const [fileType, setFileType] = useState<string>("")
   const [errors, setErrors] = useState<FormErrors>({})
+
+  // Calculate total size of files in MB
+  const totalSize = useCallback(() => {
+    return (files.reduce((acc, file) => acc + file.size, 0) / 1024 / 1024).toFixed(2)
+  }, [files])
 
   // Generate years from current year -10 to +5
   const currentYear = new Date().getFullYear()
@@ -96,22 +98,13 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
     setMessage(null)
 
     for (const file of selectedFiles) {
-      if (!allowedTypes.includes(file.type)) {
+      if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|jpe?g|png|gif|bmp|webp|tiff?|svg|heif|heic|ico)$/i)) {
         setMessage({
           text: `File ${file.name} must be a PDF or an image (JPEG, PNG, GIF, BMP, WebP, TIFF, SVG, HEIF, HEIC, ICO).`,
           type: 'error'
         })
         continue
       }
-
-      if (file.size > 100 * 1024 * 1024) {
-        setMessage({
-          text: `File ${file.name} exceeds 100MB limit.`,
-          type: 'error'
-        })
-        continue
-      }
-
       validFiles.push(file)
     }
 
@@ -124,6 +117,34 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
       setFileType(type)
     } else {
       setFiles([])
+      setFileType("")
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (isUploading) return
+
+    const droppedFiles = Array.from(e.dataTransfer.files)
+    const input = document.getElementById('file-upload') as HTMLInputElement
+    if (input) {
+      // Create a new DataTransfer object to simulate file input
+      const dataTransfer = new DataTransfer()
+      droppedFiles.forEach(file => dataTransfer.items.add(file))
+      input.files = dataTransfer.files
+
+      // Trigger change event
+      const event = new Event('change', { bubbles: true })
+      input.dispatchEvent(event)
+    }
+  }
+
+  const removeFile = (index: number) => {
+    const newFiles = [...files]
+    newFiles.splice(index, 1)
+    setFiles(newFiles)
+    if (newFiles.length === 0) {
       setFileType("")
     }
   }
@@ -159,7 +180,6 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         formData.append("zone", zone!)
       }
       else if (user.role === "zonal_head") {
-
         formData.append("branch", branch!)
         formData.append("zone", zone!)
       }
@@ -177,7 +197,7 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
           }
           return prev + 10
         })
-      }, 300)
+      }, 700)
 
       const response = await fetch("/api/documents/upload", {
         method: "POST",
@@ -199,9 +219,9 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         if (fileInput) fileInput.value = ""
         onSuccess()
       } else {
-        const error = await response.text()
+        const error = await response.json()
         setMessage({
-          text: `Upload failed: ${error}`,
+          text: `Upload failed: ${error.message || 'Unknown error'}`,
           type: 'error'
         })
       }
@@ -338,35 +358,99 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="file-upload">Files *</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="file-upload"
-              type="file"
-              accept=".pdf,image/*"
-              multiple
-              onChange={handleFileChange}
-              disabled={isUploading}
-              className={errors.files ? "border-destructive" : ""}
-            />
-          </div>
-          {errors.files && (
-            <p className="text-sm font-medium text-destructive">{errors.files}</p>
-          )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* File Upload Section */}
+        <div className="space-y-3">
+          <Label htmlFor="file-upload" className="flex items-center gap-1.5">
+            Files <span className="text-destructive">*</span>
+          </Label>
 
-          {files.length > 0 && (
-            <div className="space-y-2 mt-2">
-              <div className="text-sm text-muted-foreground">
-                Selected {files.length} file{files.length !== 1 ? 's' : ''}
+          <div className="flex flex-col gap-3">
+            {/* File Input with Drag & Drop */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${errors.files
+                ? "border-destructive bg-destructive/10"
+                : "border-primary/30 hover:border-primary/50 bg-muted/50 hover:bg-muted"
+                }`}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-base font-medium"
+                      onClick={() => document.getElementById('file-upload')?.click()}
+                    >
+                      Click to upload
+                    </Button>
+                    <span className="text-muted-foreground"> or drag and drop</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    PDF, JPG, PNG
+                  </p>
+                </div>
               </div>
-              <div className="max-h-40 overflow-y-auto border rounded-md p-2 space-y-1">
+              <Input
+                id="file-upload"
+                type="file"
+                accept=".pdf,image/*"
+                multiple
+                onChange={handleFileChange}
+                disabled={isUploading}
+                className="hidden"
+              />
+            </div>
+
+            {errors.files && (
+              <p className="text-sm font-medium text-destructive flex items-center gap-1.5">
+                <AlertCircle className="h-4 w-4" />
+                {errors.files}
+              </p>
+            )}
+          </div>
+
+          {/* Selected Files Preview */}
+          {files.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm text-muted-foreground">
+                Selected {files.length} file{files.length !== 1 ? 's' : ''} • {totalSize()} MB total
+              </div>
+              <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
                 {files.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 text-sm p-1 hover:bg-muted rounded">
-                    <FileText className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate flex-grow">{file.name}</span>
-                    <span className="text-muted-foreground text-xs">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className={`p-2 rounded-md ${file.type.includes('pdf') ? 'bg-red-50 text-red-600' :
+                      file.type.includes('image') ? 'bg-blue-50 text-blue-600' :
+                        'bg-gray-50 text-gray-600'
+                      }`}>
+                      {file.type.includes('image') ? (
+                        <Image className="h-4 w-4" />
+                      ) : (
+                        <FileText className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB • {file.type}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.preventDefault(), removeFile(index)
+                      }}
+                      disabled={isUploading}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -374,41 +458,46 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
           )}
         </div>
 
+        {/* Upload Progress */}
         {isUploading && (
-          <div className="space-y-2">
-            <Progress value={uploadProgress} />
-            <p className="text-sm text-muted-foreground">
-              {uploadProgress < 100 ? "Uploading..." : "Finalizing..."}
-            </p>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Uploading files...</span>
+              <span className="text-muted-foreground">{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-2" />
           </div>
         )}
 
+        {/* Status Messages */}
         {message && (
           <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
             {message.type === 'error' ? (
-              <AlertTriangleIcon className="h-4 w-4" />
+              <AlertTriangle className="h-4 w-4" />
             ) : (
-              <AlertCircle className="h-4 w-4" />
+              <CheckCircle className="h-4 w-4" />
             )}
-            <AlertTitle>{message.type === 'error' ? 'Error' : message.type === 'success' ? 'Success' : 'Notice'}</AlertTitle>
+            <AlertTitle className="capitalize">{message.type}</AlertTitle>
             <AlertDescription>{message.text}</AlertDescription>
           </Alert>
         )}
 
+        {/* Submit Button */}
         <Button
           type="submit"
+          size="lg"
           disabled={isUploading || Object.keys(errors).length > 0 || files.length === 0}
-          className="w-full"
+          className="w-full gap-2"
         >
           {isUploading ? (
             <>
-              <span className="animate-pulse">Uploading</span>
-              <span className="ml-2">{uploadProgress}%</span>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Uploading ({uploadProgress}%)</span>
             </>
           ) : (
             <>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload {files.length} File{files.length !== 1 ? 's' : ''}
+              <Upload className="h-4 w-4" />
+              <span>Upload {files.length} File{files.length !== 1 ? 's' : ''}</span>
             </>
           )}
         </Button>

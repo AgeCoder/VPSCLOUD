@@ -1,7 +1,7 @@
 import { eq, inArray } from 'drizzle-orm'
 import nodemailer from "nodemailer"
-import { dblocal } from "./localdb"
-import { settings } from "./localdb/schema"
+import { dblocal } from '../localdb'
+import { settings } from '../localdb/schema'
 
 /**
  * Fetch Gmail credentials from the database.

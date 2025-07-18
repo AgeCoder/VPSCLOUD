@@ -3,11 +3,11 @@
 
 import { db } from '@/lib/db'
 import { dblocal } from '@/lib/localdb'
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import { desc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { branch as localBranch, users as localUsers, settings as localSettings } from '@/lib/localdb/schema'
-import { branch, users, settings } from '@/lib/db/schema'
+import { branch, users, settings, changeLog } from '@/lib/db/schema'
 import { Session } from '@/types/types'
 
 export async function getSession(): Promise<Session> {
@@ -103,8 +103,26 @@ export async function deleteBranch(formData: FormData) {
     }
 
     try {
-        await dblocal.delete(localBranch).where(eq(localBranch.name, name)).run()
-        await db.delete(branch).where(eq(branch.name, name))
+        // 1. Fetch the branch to get its ID
+        const branchToDelete = await db.select().from(branch).where(eq(branch.name, name)).get();
+
+        if (!branchToDelete) {
+            throw new Error("Branch not found");
+        }
+
+        // 2. Delete from local and server
+        await dblocal.delete(localBranch).where(eq(localBranch.name, name)).run();
+        await db.delete(branch).where(eq(branch.name, name)).run();
+
+        // 3. Insert into change log
+        await db.insert(changeLog).values({
+            tableName: 'branch',
+            recordId: branchToDelete.id,
+            changeType: 'delete',
+            changedAt: new Date().toISOString(),
+            changedBy: session.user.id,
+        });
+
 
         revalidatePath('/settings')
         return { success: true, message: 'Branch deleted successfully' }

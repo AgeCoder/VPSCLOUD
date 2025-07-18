@@ -1,6 +1,6 @@
 // app/dashboard/page.tsx
 import { DashboardContent } from "@/components/dashboard-content"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
 import { redirect } from "next/navigation"
 import { dblocal } from "@/lib/localdb/index"
 import { branch, settings } from "@/lib/localdb/schema"

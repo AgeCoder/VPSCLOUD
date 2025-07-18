@@ -99,7 +99,7 @@ export default function ImagePreview({
             {onClose && (
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+                    className="absolute top-4 z-99 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
                 >
                     <X className="w-6 h-6" />
                 </button>

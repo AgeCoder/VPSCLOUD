@@ -25,7 +25,7 @@ export default function ImageToPDFConverter() {
     const [conversionMode, setConversionMode] = useState<ConversionMode>('separate')
     const [baseFilename, setBaseFilename] = useState('document')
     const [mergedFilename, setMergedFilename] = useState('merged')
-    const [compressPDF, setCompressPDF] = useState(false)
+    const [compressPDF, setCompressPDF] = useState(true)
     const [renameDialogOpen, setRenameDialogOpen] = useState(false)
     const [currentRenameIndex, setCurrentRenameIndex] = useState(0)
     const [renameValue, setRenameValue] = useState('')
@@ -178,8 +178,8 @@ export default function ImageToPDFConverter() {
     }
 
     return (
-        <div className="container mx-auto py-12 px-4 max-w-4xl">
-            <Card>
+        <div className="container mx-auto mt-2 px-4 max-w-7xl min-h-screen ">
+            <Card className=''>
                 <CardHeader>
                     <div className='w-full justify-between flex'>
                         <div>

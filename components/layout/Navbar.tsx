@@ -1,5 +1,5 @@
 import React from 'react'
-import { UserMenu, UserMenuProps } from '../user-menu'
+import { UserMenu, UserMenuProps } from './user-menu'
 import { ModeToggle } from '../ModeToggle'
 import Syncer from '../Sync/Syncer'
 import Image from 'next/image'
@@ -14,9 +14,9 @@ export default function Navbar({ user }: UserMenuProps) {
                             <Image
                                 src='/logo.png'
                                 alt='logo'
-                                width={50}
-                                height={50}
-                                className='rounded-full'
+                                width={40}
+                                height={40}
+                                className=''
                             />
                         </div>
                         <div
@@ -44,7 +44,7 @@ export default function Navbar({ user }: UserMenuProps) {
                         <UserMenu user={user} />
                     </div>
                 </div>
-            </div>
-        </header>
+            </div >
+        </header >
     )
 }

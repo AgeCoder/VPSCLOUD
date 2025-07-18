@@ -1,8 +1,9 @@
 // lib/crypto.ts
 import crypto from "crypto"
-import { dblocal } from "./localdb"
-import { settings } from "./localdb/schema"
+
 import { eq } from "drizzle-orm"
+import { dblocal } from "../localdb"
+import { settings } from "../localdb/schema"
 
 const ALGORITHM = "aes-256-gcm"
 const KEY_LENGTH = 32 // 256 bits = 32 bytes

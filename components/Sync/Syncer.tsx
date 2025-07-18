@@ -1,10 +1,10 @@
 // app/components/Syncer.tsx
-import { auth } from '@/lib/auth'
+import { auth } from '@/lib/auth/auth'
 import { dblocal } from '@/lib/localdb'
 import { syncMetadata } from '@/lib/localdb/schema'
 import { eq } from 'drizzle-orm'
 import { SyncButton } from './SyncButton'
-import { SyncService } from '@/lib/syncDocuments'
+import { SyncService } from '@/lib/doc/syncDocuments'
 
 const SYNC_COOLDOWN_MIN = 3
 const AUTO_SYNC_INTERVAL_MIN = 1440
@@ -37,10 +37,10 @@ export default async function Syncer() {
             if (session.user.role !== 'admin') {
                 await syncService.syncAll({
                     fullSync: false,
-                    tables: ['documents', 'users', 'branch', 'settings']
+                    tables: ['users', 'branch', 'documents', 'settings']
                 })
             } else {
-                await syncService.syncAll({ fullSync: true })
+                await syncService.syncAll({ fullSync: false, tables: ['users', 'branch', 'documents', 'settings', 'accessLogs'] })
             }
 
             await dblocal.insert(syncMetadata).values({

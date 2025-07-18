@@ -43,6 +43,8 @@ export default function AccessLogsPage() {
             const response = await fetch("/api/admin/logs")
             if (response.ok) {
                 const data = await response.json()
+                console.log(data);
+
                 setLogs(data)
             } else {
                 throw new Error("Failed to fetch logs")
@@ -82,7 +84,7 @@ export default function AccessLogsPage() {
                         `"${new Date(log.timestamp).toLocaleString()}"`,
                         `"${log.user.email}"`,
                         `"${log.action}"`,
-                        `"${log.file.originalFilename}"`
+                        `"${log?.file?.originalFilename ?? 'FileNotFound'}"`
                     ].join(",")
                 )
             ].join("\n")
@@ -110,6 +112,7 @@ export default function AccessLogsPage() {
             default: return action
         }
     }
+    console.log(filteredLogs);
 
     return (
         <div className="container py-8 mx-auto">
@@ -166,13 +169,13 @@ export default function AccessLogsPage() {
                                             className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                                         >
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate">{log.user.email}</p>
+                                                <p className="font-medium truncate">{log?.user?.email || "Unknown user"}</p>
                                                 <p className="text-sm text-muted-foreground truncate">
-                                                    {formatAction(log.action)} • {log.file.originalFilename}
+                                                    {formatAction(log?.action)} • {log?.file?.originalFilename || "A file was deleted"}
                                                 </p>
                                             </div>
                                             <div className="text-sm text-muted-foreground whitespace-nowrap ml-4">
-                                                {new Date(log.timestamp).toLocaleString()}
+                                                {log?.timestamp ? new Date(log.timestamp).toLocaleString() : "Unknown time"}
                                             </div>
                                         </div>
                                     ))}

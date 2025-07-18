@@ -43,21 +43,24 @@ export const accessLogs = sqliteTable("access_logs", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   fileId: integer("file_id")
-    .notNull()
-    .references(() => documents.id, { onDelete: "cascade" }),
+    .references(() => documents.id, { onDelete: "set null" }), // ← changed this
   action: text("action", { enum: actionEnum }).notNull(),
   timestamp: text("timestamp").default("CURRENT_TIMESTAMP").notNull(),
-})
+});
+
 
 // CHANGE LOG
 export const changeLog = sqliteTable("change_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  documentId: integer("document_id")
-    .notNull()
-    .references(() => documents.id, { onDelete: "cascade" }),
+  tableName: text("table_name").notNull(),
+  recordId: integer("record_id").notNull(),
   changeType: text("change_type", { enum: changeTypeEnum }).notNull(),
   changedAt: text("changed_at").default("CURRENT_TIMESTAMP").notNull(),
-})
+  changedBy: integer("changed_by").references(() => users.id, {
+    onDelete: "set null",
+  }),
+});
+
 
 // RELATIONS
 export const usersRelations = relations(users, ({ many }) => ({
@@ -85,12 +88,7 @@ export const accessLogsRelations = relations(accessLogs, ({ one }) => ({
   }),
 }))
 
-export const changeLogRelations = relations(changeLog, ({ one }) => ({
-  document: one(documents, {
-    fields: [changeLog.documentId],
-    references: [documents.id],
-  }),
-}))
+
 
 // VERIFICATION TOKENS
 export const verificationTokens = sqliteTable("verification_tokens", {

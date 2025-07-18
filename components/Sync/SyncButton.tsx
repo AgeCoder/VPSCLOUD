@@ -33,6 +33,7 @@ export function SyncButton({ canSync, timeLeftMs }: { canSync: boolean; timeLeft
                 toast('Sync successful', {
                     description: 'Data has been synchronized',
                 })
+                window.location.reload()
             } catch (error) {
                 toast('Sync failed', {
                     description: error instanceof Error ? error.message : 'Failed to sync data',

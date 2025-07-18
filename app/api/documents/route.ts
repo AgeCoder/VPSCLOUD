@@ -4,8 +4,8 @@ import { dblocal } from "@/lib/localdb"
 import { documents, users } from "@/lib/db/schema"
 import { documents as localDocuments, users as localuser } from "@/lib/localdb/schema"
 import { count, desc, eq, inArray } from "drizzle-orm"
-import { getAccessibleBranches } from "@/lib/access-control"
-import { auth } from "@/lib/auth"
+import { auth } from "@/lib/auth/auth"
+import { getAccessibleBranches } from "@/lib/auth/access-control"
 
 export async function GET(req: NextRequest) {
   try {

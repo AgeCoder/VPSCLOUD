@@ -80,19 +80,16 @@ export function DashboardContent({ user, zoneMapping, canUpload, docType }: Dash
               }
             </TabsList>
 
-            <TabsContent value="documents" className="space-y-6">
-              <Card className="border-t-0 rounded-none">
-                <CardContent className="space-y-4">
-                  <DocumentList
-                    documents={documents}
-                    searchQuery={searchQuery}
-                    isLoading={isLoading}
-                    user={user}
-                    setDocuments={setDocuments}
-                    onChange={setSearchQuery}
-                  />
-                </CardContent>
-              </Card>
+            <TabsContent value="documents">
+              <DocumentList
+                documents={documents}
+                searchQuery={searchQuery}
+                isLoading={isLoading}
+                user={user}
+                setDocuments={setDocuments}
+                onChange={setSearchQuery}
+              />
+
             </TabsContent>
 
             <TabsContent value="upload">

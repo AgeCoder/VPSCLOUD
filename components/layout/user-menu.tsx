@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BarChart, FileText, History, LogOut, Settings } from "lucide-react"
-import Link from "next/link"
 
 export interface UserMenuProps {
   user: {
@@ -29,8 +28,7 @@ export function UserMenu({ user }: UserMenuProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", { method: "POST" })
-      document.cookie = "session-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;"
+      await fetch("/api/auth/logout", { method: "GET" })
       router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)

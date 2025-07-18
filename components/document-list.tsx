@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "./ui/label"
 import { SearchBar } from "./search-bar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 
 
 export interface Document {
@@ -71,11 +72,15 @@ export function DocumentList({
 
   const [yearFilter, setYearFilter] = useState<string>("all")
   const [branchFilter, setBranchFilter] = useState<string>("all")
+  const [zonesFilter, setZonesFilter] = useState<string>("all")
   const [docTypeFilter, setDocTypeFilter] = useState<string>("all")
   const [fileTypeFilter, setFileTypeFilter] = useState<string>("all")
+  const [isloading, setisloading] = useState(false)
+
 
   const years = [...new Set(documents.map((doc) => doc.year))].sort((a, b) => b.localeCompare(a))
   const branches = [...new Set(documents.map((doc) => doc.branch))].sort()
+  const zones = [...new Set(documents.map((doc) => doc.zone))].sort()
   const docTypes = [...new Set(documents.map((doc) => doc.type))].sort()
   const fileTypes = [...new Set(documents.map((doc) => doc.filetype))].sort()
 
@@ -83,9 +88,10 @@ export function DocumentList({
     const matchesSearch = doc.originalFilename.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesYear = yearFilter === "all" || doc.year === yearFilter
     const matchesBranch = branchFilter === "all" || doc.branch === branchFilter
+    const matchesZone = zonesFilter === "all" || doc.zone === zonesFilter
     const matchesDocType = docTypeFilter === "all" || doc.type === docTypeFilter
     const matchesFileType = fileTypeFilter === "all" || doc.filetype === fileTypeFilter
-    return matchesSearch && matchesYear && matchesBranch && matchesDocType && matchesFileType
+    return matchesSearch && matchesYear && matchesBranch && matchesDocType && matchesFileType && matchesZone
   })
 
   const resetFilters = () => {
@@ -93,12 +99,15 @@ export function DocumentList({
     setBranchFilter("all")
     setDocTypeFilter("all")
     setFileTypeFilter("all")
+    setZonesFilter("all")
   }
 
   const handleDownload = async (documentId: string) => {
+
     setDownloadingId(documentId)
     try {
       const response = await fetch(`/api/documents/${documentId}/download`)
+
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -146,6 +155,7 @@ export function DocumentList({
   const handleDelete = async () => {
     if (!deleteDialogId) return
     try {
+      setisloading(true)
       const response = await fetch(`/api/documents/delete/${deleteDialogId}`, {
         method: "DELETE",
       })
@@ -160,6 +170,7 @@ export function DocumentList({
     } catch (err) {
       toast.error("Delete failed")
     } finally {
+      setisloading(false)
       setDeleteDialogId(null)
     }
   }
@@ -186,7 +197,7 @@ export function DocumentList({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2 min-h-screen mb-28">
       {/* Preview Dialog */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogHeader className="hidden">
@@ -198,7 +209,7 @@ export function DocumentList({
           <div className="h-full w-full flex items-center justify-center bg-muted/50 p-4 overflow-auto">
             {previewUrl &&
               (isImage ? (
-                <ImagePreview previewUrl={previewUrl} />
+                <ImagePreview previewUrl={previewUrl} onClose={() => setIsPreviewOpen(false)} />
               ) : (
                 <iframe src={previewUrl} className="w-full h-full rounded shadow" />
               ))}
@@ -220,8 +231,15 @@ export function DocumentList({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="destructive" onClick={handleDelete}>
-              Delete Document
+            <Button variant="destructive" onClick={handleDelete} disabled={isloading}>
+              {isloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Delete Document
+                </>
+              )}
+
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -229,7 +247,7 @@ export function DocumentList({
 
       {/* Filters */}
       <div className="flex justify-end items-center">
-        {(yearFilter !== "all" || branchFilter !== "all" || docTypeFilter !== "all" || fileTypeFilter !== "all") && (
+        {(yearFilter !== "all" || branchFilter !== "all" || docTypeFilter !== "all" || fileTypeFilter !== "all" || zonesFilter !== 'all') && (
           <Button variant="outline" className="gap-2 text-sm" onClick={resetFilters}>
             <X className="w-4 h-4" />
             Clear filters
@@ -238,13 +256,14 @@ export function DocumentList({
       </div>
 
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 border rounded-lg">
         {[{ label: "Year", values: years, state: yearFilter, setState: setYearFilter },
         { label: "Branch", values: branches, state: branchFilter, setState: setBranchFilter },
+        { label: "Zone", values: zones, state: zonesFilter, setState: setZonesFilter },
         { label: "Document Type", values: docTypes, state: docTypeFilter, setState: setDocTypeFilter },
         { label: "File Type", values: fileTypes, state: fileTypeFilter, setState: setFileTypeFilter }]
           .map(({ label, values, state, setState }) => (
-            <div className="space-y-2" key={label}>
+            <div className="space-y-1" key={label}>
               <Label>{label}</Label>
               <Select value={state} onValueChange={setState}>
                 <SelectTrigger>
@@ -277,39 +296,108 @@ export function DocumentList({
         </div>
       ) : (
         filteredDocuments.map((doc) => (
-          <Card key={doc.id} className="hover:shadow transition-shadow">
-            <CardContent className="p-4 flex justify-between items-start">
-              <div className="flex items-start space-x-3">
-                <div className={`p-2 rounded-lg ${doc.filetype === 'pdf' ? 'bg-red-50 text-blue-600' : doc.filetype === 'docx' ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-green-600'}`}>
-                  <FileText className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">{doc.originalFilename}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
-                    <Badge variant="outline">{doc.branch || doc.zone}</Badge>
-                    <Badge variant="outline">{doc.year}</Badge>
-                    <Badge variant="outline">{doc.type}</Badge>
-                    <span>Uploaded by {doc.uploadedBy.email}</span>
-                    <span>{format(new Date(doc.uploadedAt), "MMM d, yyyy")}</span>
-                    <Badge variant="secondary">{doc.filetype}</Badge>
+          <TooltipProvider key={doc.id}>
+            <Card key={doc.id} className="hover:shadow-md transition-shadow duration-200">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start gap-4">
+                  {/* File Info Section */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    {/* File Icon */}
+                    <div className="flex flex-col gap-1.5">
+                      <div className={`p-2.5 flex items-center justify-center rounded-lg flex-shrink-0 ${doc.filetype === 'pdf' ? 'bg-red-50 text-red-600' :
+                        doc.filetype === 'docx' ? 'bg-blue-50 text-blue-600' :
+                          'bg-gray-50 text-green-600'
+                        }`}>
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <Badge variant="secondary" className="text-xs font-normal">
+                        {doc?.filetype.toUpperCase()}
+                      </Badge>
+                    </div>
+
+                    {/* File Details */}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.originalFilename}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Uploaded by {doc?.uploadedBy?.email} • {format(new Date(doc?.uploadedAt), "MMM d, yyyy")}
+                      </p>
+
+                      {/* Metadata Badges */}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+
+                        {[doc?.year, doc?.zone, doc?.branch || doc.zone, doc?.type].filter(Boolean).map((tag, i) => (
+                          <Badge key={i} variant="outline" className="text-xs font-normal hover:scale-105">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className=""
+                          onClick={() => handlePreview(doc.id)}
+                        >
+                          {previewingId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Preview</TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon"
+                          className=""
+                          onClick={() => handleDownload(doc.id)}
+                          disabled={downloadingId === doc.id}
+                        >
+                          {downloadingId === doc.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Download</TooltipContent>
+                    </Tooltip>
+
+                    {user?.role === "admin" && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="destructive"
+                            className=""
+                            disabled={isloading}
+                            onClick={() => setDeleteDialogId(doc.id)}
+                          >
+                            {isloading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button size="sm" variant="outline" onClick={() => handlePreview(doc.id)}>
-                  {previewingId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-                </Button>
-                <Button size="sm" onClick={() => handleDownload(doc.id)} disabled={downloadingId === doc.id}>
-                  {downloadingId === doc.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                </Button>
-                {user?.role === "admin" && (
-                  <Button size="sm" variant="destructive" onClick={() => setDeleteDialogId(doc.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </TooltipProvider>
         ))
       )}
     </div>
