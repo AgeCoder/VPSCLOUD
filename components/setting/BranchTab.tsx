@@ -1,40 +1,102 @@
-// app/settings/components/BranchTab.tsx
 'use client'
 
+import { useState, useEffect } from 'react'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { SubmitButton } from './SubmitButton'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table'
+import { Card } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Button } from '../ui/button'
-import { addBranch, deleteBranch, updateBranch } from '@/app/setting/action'
+import { SubmitButton } from './SubmitButton'
+import { addBranch, deleteBranch } from '@/app/setting/action'
 import { useActionState } from 'react'
+import { Loader2 } from 'lucide-react'
 
-interface BranchTabProps {
-    branches: any[]
-    session: any
+interface Branch {
+    id: string
+    name: string
+    zone: string
 }
 
-import { useEffect } from "react"
+interface SessionUser {
+    role: string
+}
+
+interface Session {
+    user: SessionUser
+}
+
+interface BranchTabProps {
+    branches: Branch[]
+    session: Session
+}
 
 export function BranchTab({ branches, session }: BranchTabProps) {
+    const [zone, setZone] = useState('')
+    const [branchName, setBranchName] = useState('')
+    const [zones, setZones] = useState<string[]>([])
+    const [newZoneInput, setNewZoneInput] = useState('')
+    const [showNewZoneInput, setShowNewZoneInput] = useState(false)
+    const [openDialog, setOpenDialog] = useState(false)
+
+    useEffect(() => {
+        const uniqueZones = [...new Set(branches.map((b) => b.zone))].sort()
+        setZones(uniqueZones)
+    }, [branches])
+
     const [addBranchState, addBranchAction] = useActionState(
-        async (_state: any, formData: FormData) => await addBranch(formData),
+        async (_state: any, formData: FormData) => {
+            try {
+                return await addBranch(formData)
+            } catch (error) {
+                return { success: false, message: 'Failed to add branch' }
+            }
+        },
         null
     )
-    // import delte and update from action
+
     const [deleteBranchState, deleteBranchAction] = useActionState(
-        async (_state: any, formData: FormData) => await deleteBranch(formData),
-        null
-    )
-    const [updateBranchState, updateBranchAction] = useActionState(
-        async (_state: any, formData: FormData) => await updateBranch(formData),
+        async (_state: any, formData: FormData) => {
+            try {
+                return await deleteBranch(formData)
+            } catch (error) {
+                return { success: false, message: 'Failed to delete branch' }
+            }
+        },
         null
     )
 
     useEffect(() => {
         if (addBranchState?.success) {
             toast.success(addBranchState.message)
+            setZone('')
+            setBranchName('')
+            setNewZoneInput('')
+            setShowNewZoneInput(false)
+            setOpenDialog(false)
         } else if (addBranchState?.success === false) {
             toast.error(addBranchState.message)
         }
@@ -48,97 +110,203 @@ export function BranchTab({ branches, session }: BranchTabProps) {
         }
     }, [deleteBranchState])
 
-    useEffect(() => {
-        if (updateBranchState?.success) {
-            toast.success(updateBranchState.message)
-        } else if (updateBranchState?.success === false) {
-            toast.error(updateBranchState.message)
-        }
-    }, [updateBranchState])
-
     return (
-        <div
-            className='mb-32 mx-12'
-        >
+        <div className="mb-32 mx-4 md:mx-12">
             <h2 className="text-xl font-semibold mb-4">Branch Management</h2>
 
             {session.user.role === 'admin' && (
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Add New Branch</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form action={addBranchAction} className="flex gap-4">
-                            <Input
-                                type="text"
-                                name="name"
-                                placeholder="Branch Name"
-                                required
-                            />
-                            <Input
-                                type="text"
-                                name="zone"
-                                placeholder="Zone"
-                                required
-                            />
-                            <SubmitButton>Add Branch</SubmitButton>
-                        </form>
-                    </CardContent>
-                </Card>
+                <div className="mb-6 w-full flex justify-end">
+                    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                        <DialogTrigger asChild>
+                            <Button>Add New Branch</Button>
+                        </DialogTrigger>
+
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Add New Branch</DialogTitle>
+                                <DialogDescription>
+                                    Select a zone or add a new one, and enter the branch name.
+                                </DialogDescription>
+                            </DialogHeader>
+
+                            <form action={addBranchAction} className="space-y-4">
+                                <input
+                                    type="hidden"
+                                    name="zone"
+                                    value={showNewZoneInput ? newZoneInput : zone}
+                                />
+
+                                {!showNewZoneInput ? (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="zone-select">Zone</Label>
+                                        <Select
+                                            value={zone}
+                                            onValueChange={(value) => {
+                                                if (value === '__add_new__') {
+                                                    setShowNewZoneInput(true)
+                                                    setZone('')
+                                                } else {
+                                                    setZone(value)
+                                                }
+                                            }}
+                                        >
+                                            <SelectTrigger id="zone-select">
+                                                <SelectValue placeholder="Select zone" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {zones.map((z) => (
+                                                    <SelectItem key={z} value={z}>
+                                                        {z}
+                                                    </SelectItem>
+                                                ))}
+                                                <SelectItem value="__add_new__" className="text-blue-600">
+                                                    Add New Zone
+                                                </SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="new-zone">New Zone</Label>
+                                        <Input
+                                            id="new-zone"
+                                            value={newZoneInput}
+                                            onChange={(e) => setNewZoneInput(e.target.value)}
+                                            placeholder="Enter new zone name"
+                                            required
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            className="mt-1 text-sm text-blue-500"
+                                            onClick={() => {
+                                                setShowNewZoneInput(false)
+                                                setNewZoneInput('')
+                                            }}
+                                        >
+                                            ← Back to zone list
+                                        </Button>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="branch-name">Branch Name</Label>
+                                    <Input
+                                        id="branch-name"
+                                        type="text"
+                                        name="name"
+                                        value={branchName}
+                                        onChange={(e) => setBranchName(e.target.value.toUpperCase())}
+                                        placeholder="Branch Name"
+                                        required
+                                        className="uppercase"
+                                    />
+                                </div>
+
+                                <DialogFooter>
+                                    <SubmitButton
+                                        disabled={
+                                            (showNewZoneInput && !newZoneInput.trim()) ||
+                                            (!showNewZoneInput && !zone.trim()) ||
+                                            !branchName.trim()
+                                        }
+                                    >
+                                        Add Branch
+                                    </SubmitButton>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             )}
 
             <Card>
-                <Table className="w-full border rounded- shadow-sm">
-                    <TableHeader >
+                <Table>
+                    <TableHeader>
                         <TableRow>
-                            <TableHead className="text-sm font-medium text-gray-700">
-                                ID
-                            </TableHead>
-                            <TableHead className="text-sm font-medium text-gray-700">Name</TableHead>
-                            <TableHead className="text-sm font-medium text-gray-700">Zone</TableHead>
-                            {session.user.role === 'admin' && (
-                                <TableHead className="text-sm font-medium text-gray-700">Actions</TableHead>
-                            )}
+                            <TableHead>ID</TableHead>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Zone</TableHead>
+                            {session.user.role === 'admin' && <TableHead>Actions</TableHead>}
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {branches.map((branch) => (
-                            <TableRow key={branch.id} className="hover:bg-gray-700 transition ">
-                                <TableCell className="py-2 px-4 text-sm">{branch.id}</TableCell>
-                                <TableCell className="py-2 px-4 text-sm">{branch.name}</TableCell>
-                                <TableCell className="py-2 px-4 text-sm">{branch.zone}</TableCell>
+                            <TableRow key={branch.id}>
+                                <TableCell>{branch.id}</TableCell>
+                                <TableCell>{branch.name}</TableCell>
+                                <TableCell>{branch.zone}</TableCell>
                                 {session.user.role === 'admin' && (
-                                    <TableCell className="py-2 px-4 text-sm space-x-2">
-                                        {/* Optional: Update branch (show if needed) */}
-                                        {/* <form action={updateBranchAction} className="inline-flex gap-2">
-                                            <Input type="hidden" name="name" value={branch.name} />
-                                            <Input
-                                                type="text"
-                                                name="zone"
-                                                defaultValue={branch.zone}
-                                                required
-                                                className="h-8 text-sm"
-                                            />
-                                            <Button type="submit" variant="outline" size="sm">
-                                                Update
-                                            </Button>
-                                        </form> */}
-
-                                        {/* Delete branch */}
-                                        <form action={deleteBranchAction} className="inline-block">
-                                            <input type="hidden" name="name" value={branch.name} />
-                                            <Button type="submit" variant="destructive" size="sm">
-                                                Delete
-                                            </Button>
-                                        </form>
+                                    <TableCell>
+                                        <DeleteBranchDialog
+                                            branchName={branch.name}
+                                            onConfirm={async () => {
+                                                const formData = new FormData()
+                                                formData.append('name', branch.name)
+                                                await deleteBranchAction(formData)
+                                            }}
+                                        />
                                     </TableCell>
                                 )}
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
-
             </Card>
         </div>
+    )
+}
+
+interface DeleteBranchDialogProps {
+    branchName: string
+    onConfirm: () => Promise<void>
+}
+
+function DeleteBranchDialog({ branchName, onConfirm }: DeleteBranchDialogProps) {
+    const [open, setOpen] = useState(false)
+    const [loading, setLoading] = useState(false)
+
+    const handleDelete = async () => {
+        setLoading(true)
+        try {
+            await onConfirm()
+        } finally {
+            setLoading(false)
+            setOpen(false)
+        }
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                    Delete
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Confirm Deletion</DialogTitle>
+                    <DialogDescription>
+                        Are you sure you want to delete <strong>{branchName}</strong>?
+                        This action cannot be undone.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+                        Cancel
+                    </Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={loading}>
+                        {loading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                            </>
+                        ) : (
+                            'Delete'
+                        )}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }

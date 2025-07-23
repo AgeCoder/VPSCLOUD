@@ -9,9 +9,10 @@ interface SubmitButtonProps {
     children: React.ReactNode
     variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
     size?: 'default' | 'sm' | 'lg' | 'icon'
+    disabled?: boolean
 }
 
-export function SubmitButton({ children, variant = 'default', size = 'default' }: SubmitButtonProps) {
+export function SubmitButton({ children, variant = 'default', size = 'default', disabled }: SubmitButtonProps) {
     const { pending } = useFormStatus()
 
     return (
@@ -19,7 +20,7 @@ export function SubmitButton({ children, variant = 'default', size = 'default' }
             type="submit"
             variant={variant}
             size={size}
-            disabled={pending}
+            disabled={pending || disabled}
             className="flex items-center gap-2"
         >
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}

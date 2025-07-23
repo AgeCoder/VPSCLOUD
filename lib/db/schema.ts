@@ -41,9 +41,9 @@ export const accessLogs = sqliteTable("access_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "set null" }),
   fileId: integer("file_id")
-    .references(() => documents.id, { onDelete: "set null" }), // ← changed this
+    .references(() => documents.id, { onDelete: "set null" }),
   action: text("action", { enum: actionEnum }).notNull(),
   timestamp: text("timestamp").default("CURRENT_TIMESTAMP").notNull(),
 });
@@ -60,6 +60,15 @@ export const changeLog = sqliteTable("change_log", {
     onDelete: "set null",
   }),
 });
+
+export const loginSessions = sqliteTable("login_sessions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "set null" }),
+  email: text("email").notNull(),
+  loginAt: text("login_at").default("CURRENT_TIMESTAMP").notNull(),
+})
 
 
 // RELATIONS
@@ -101,6 +110,7 @@ export const verificationTokens = sqliteTable("verification_tokens", {
 
 // SETTINGS TABLE
 export const settings = sqliteTable("settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   key: text("key").notNull().unique(),
   value: text("value").notNull(),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
@@ -114,4 +124,11 @@ export const branch = sqliteTable("branch", {
   zone: text("zone").notNull(),
   createdAt: text("created_at").default("CURRENT_TIMESTAMP").notNull(),
   updatedAt: text("updated_at").default("CURRENT_TIMESTAMP").notNull(),
+})
+
+export const doctype = sqliteTable('doctype', {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  type: text('type').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
 })

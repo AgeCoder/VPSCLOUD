@@ -29,7 +29,10 @@ export default function RootLayout({
             {children}
           </BackendCheckWrapper>
         </ThemeProvider>
-        <Toaster />
+        <Toaster
+          richColors
+          position='top-center'
+        />
       </body>
     </html>
   )

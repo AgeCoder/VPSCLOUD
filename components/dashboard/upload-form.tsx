@@ -8,28 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
 import { Upload, FileText, AlertCircle, Loader2, AlertTriangle, CheckCircle, Image, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-export interface User {
-  email: string
-  role: string
-  branch?: string
-  zone?: string
-}
-
-interface UploadFormProps {
-  user: User
-  onSuccess: () => void
-  zoneMapping: Record<string, string[]>
-  docType: string[] | null
-}
-
-type FormErrors = {
-  zone?: string
-  branch?: string
-  year?: string
-  docType?: string
-  files?: string
-}
+import { FormErrors, UploadFormProps } from "./types"
 
 export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadFormProps) {
   const [files, setFiles] = useState<File[]>([])
@@ -47,79 +26,67 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
   const [fileType, setFileType] = useState<string>("")
   const [errors, setErrors] = useState<FormErrors>({})
 
-  // Calculate total size of files in MB
   const totalSize = useCallback(() => {
     return (files.reduce((acc, file) => acc + file.size, 0) / 1024 / 1024).toFixed(2)
   }, [files])
 
-  // Generate years from current year -10 to +5
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 16 }, (_, i) => (currentYear - 10 + i).toString())
 
-  // Validate form whenever fields change
   useEffect(() => {
-    validateForm()
-  }, [zone, branch, year, docTypeLocal, files, user.role])
+    if (Object.keys(errors).length > 0) {
+      setErrors(validateForm())
+    }
+  }, [files, zone, branch, year, docTypeLocal])
 
-  const validateForm = (): boolean => {
+  const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {}
 
-    if (user.role === "admin") {
+    if (user.role === "admin" || user.role === "zonal_head") {
       if (!zone) newErrors.zone = "Zone is required"
-      if (!branch) newErrors.branch = "Branch is required"
+      if (!branch && zone) newErrors.branch = "Branch is required"
     }
 
     if (!year) newErrors.year = "Year is required"
     if (!docTypeLocal) newErrors.docType = "Document type is required"
     if (files.length === 0) newErrors.files = "At least one file is required"
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || [])
+    if (!e.target.files?.length) return
+
+    const selectedFiles = Array.from(e.target.files)
     const validFiles: File[] = []
     const allowedTypes = [
       "application/pdf",
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/bmp",
-      "image/webp",
-      "image/tiff",
-      "image/svg+xml",
-      "image/heif",
-      "image/heic",
-      "image/x-icon",
+      "image/jpeg", "image/png", "image/gif", "image/bmp",
+      "image/webp", "image/tiff", "image/svg+xml"
     ]
 
-    // Clear previous messages
-    setMessage(null)
+    setErrors(prev => ({ ...prev, files: undefined }))
 
     for (const file of selectedFiles) {
-      if (!allowedTypes.includes(file.type) && !file.name.match(/\.(pdf|jpe?g|png|gif|bmp|webp|tiff?|svg|heif|heic|ico)$/i)) {
+      const isAllowedType = allowedTypes.includes(file.type) ||
+        file.name.match(/\.(pdf|jpe?g|png|gif|bmp|webp|tiff?|svg)$/i)
+
+      if (!isAllowedType) {
         setMessage({
-          text: `File ${file.name} must be a PDF or an image (JPEG, PNG, GIF, BMP, WebP, TIFF, SVG, HEIF, HEIC, ICO).`,
+          text: `${file.name}: Invalid file type (only PDF and images allowed)`,
           type: 'error'
         })
         continue
       }
+
       validFiles.push(file)
     }
 
     if (validFiles.length > 0) {
-      setFiles(validFiles)
-      // Set file type based on the first file's type
-      const type = validFiles[0].type.split('/')[1] ||
-        validFiles[0].name.split('.').pop()?.toLowerCase() ||
-        'unknown'
-      setFileType(type)
-    } else {
-      setFiles([])
-      setFileType("")
+      setFiles(prev => [...prev, ...validFiles])
+      setFileType(validFiles[0].type.split('/')[1] || validFiles[0].name.split('.').pop() || '')
     }
   }
+
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -129,12 +96,9 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
     const droppedFiles = Array.from(e.dataTransfer.files)
     const input = document.getElementById('file-upload') as HTMLInputElement
     if (input) {
-      // Create a new DataTransfer object to simulate file input
       const dataTransfer = new DataTransfer()
       droppedFiles.forEach(file => dataTransfer.items.add(file))
       input.files = dataTransfer.files
-
-      // Trigger change event
       const event = new Event('change', { bubbles: true })
       input.dispatchEvent(event)
     }
@@ -152,11 +116,10 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!validateForm()) {
-      setMessage({
-        text: "Please fix all errors before uploading",
-        type: 'error'
-      })
+    const newErrors = validateForm()
+    setErrors(newErrors)
+
+    if (Object.keys(newErrors).length > 0) {
       return
     }
 
@@ -170,7 +133,6 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         formData.append(`file${index}`, file)
       })
 
-      // Add metadata fields
       formData.append("year", year)
       formData.append("type", docTypeLocal)
       formData.append("filetype", fileType)
@@ -188,7 +150,6 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         formData.append("zone", user.zone || "")
       }
 
-      // Simulate progress for demo (replace with actual upload progress)
       const interval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -214,7 +175,6 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
         })
         setFiles([])
         setFileType("")
-        // Reset file input
         const fileInput = document.getElementById("file-upload") as HTMLInputElement
         if (fileInput) fileInput.value = ""
         onSuccess()
@@ -254,7 +214,7 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
                 setZone(value)
                 setBranch(null)
               }}
-              disabled={user.role === "zonal_head"} // Disable for zonal head
+              disabled={user.role === "zonal_head"}
             >
               <SelectTrigger id="zone" className={errors.zone ? "border-destructive" : ""}>
                 <SelectValue placeholder="Select Zone" />
@@ -359,14 +319,12 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* File Upload Section */}
         <div className="space-y-3">
           <Label htmlFor="file-upload" className="flex items-center gap-1.5">
             Files <span className="text-destructive">*</span>
           </Label>
 
           <div className="flex flex-col gap-3">
-            {/* File Input with Drag & Drop */}
             <div
               className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${errors.files
                 ? "border-destructive bg-destructive/10"
@@ -382,14 +340,17 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
                     <Button
                       variant="link"
                       className="h-auto p-0 text-base font-medium"
-                      onClick={() => document.getElementById('file-upload')?.click()}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        document.getElementById('file-upload')?.click()
+                      }}
                     >
                       Click to upload
                     </Button>
                     <span className="text-muted-foreground"> or drag and drop</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    PDF, JPG, PNG
+                    PDF, JPG, PNG, GIF, BMP, WebP, TIFF, SVG
                   </p>
                 </div>
               </div>
@@ -412,7 +373,6 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
             )}
           </div>
 
-          {/* Selected Files Preview */}
           {files.length > 0 && (
             <div className="space-y-2">
               <div className="text-sm text-muted-foreground">
@@ -458,18 +418,23 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
           )}
         </div>
 
-        {/* Upload Progress */}
         {isUploading && (
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="font-medium">Uploading files...</span>
-              <span className="text-muted-foreground">{uploadProgress}%</span>
+              <span className="font-medium">
+                Uploading {files.length} file{files.length !== 1 ? 's' : ''}...
+              </span>
+              <span className="text-muted-foreground">
+                {uploadProgress}% • {totalSize()} MB
+              </span>
             </div>
-            <Progress value={uploadProgress} className="h-2" />
+            <Progress
+              value={uploadProgress}
+              className={`h-2 ${uploadProgress === 100 ? "[&>div]:bg-green-500" : "[&>div]:bg-primary"}`}
+            />
           </div>
         )}
 
-        {/* Status Messages */}
         {message && (
           <Alert variant={message.type === 'error' ? 'destructive' : 'default'}>
             {message.type === 'error' ? (
@@ -482,11 +447,10 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
           </Alert>
         )}
 
-        {/* Submit Button */}
         <Button
           type="submit"
           size="lg"
-          disabled={isUploading || Object.keys(errors).length > 0 || files.length === 0}
+          disabled={isUploading || files.length === 0}
           className="w-full gap-2"
         >
           {isUploading ? (
@@ -497,7 +461,11 @@ export function UploadForm({ user, onSuccess, zoneMapping, docType }: UploadForm
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              <span>Upload {files.length} File{files.length !== 1 ? 's' : ''}</span>
+              <span>
+                {files.length > 0
+                  ? `Upload ${files.length} File${files.length !== 1 ? 's' : ''}`
+                  : 'Select Files to Upload'}
+              </span>
             </>
           )}
         </Button>

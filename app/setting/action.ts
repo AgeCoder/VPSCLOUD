@@ -4,10 +4,10 @@
 import { db } from '@/lib/db'
 import { dblocal } from '@/lib/localdb'
 import { auth } from '@/lib/auth/auth'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
-import { branch as localBranch, users as localUsers, settings as localSettings } from '@/lib/localdb/schema'
-import { branch, users, settings, changeLog } from '@/lib/db/schema'
+import { branch as localBranch, users as localUsers, settings as localSettings, doctype as loacldoctype, documents } from '@/lib/localdb/schema'
+import { branch, users, settings, changeLog, doctype } from '@/lib/db/schema'
 import { Session } from '@/types/types'
 
 export async function getSession(): Promise<Session> {
@@ -47,6 +47,27 @@ export async function getSettings() {
     }
 
     return await dblocal.select().from(localSettings).all()
+}
+
+export async function getDocTypes() {
+    const session = await auth();
+    if (!session?.user) {
+        throw new Error("Unauthorized");
+    }
+
+    const result = await dblocal
+        .select({
+            id: doctype.id,
+            type: doctype.type,
+            createdAt: doctype.createdAt,
+            updatedAt: doctype.updatedAt,
+            count: sql<number>`COUNT(${documents.id})`.as("count")
+        })
+        .from(doctype)
+        .leftJoin(documents, sql`LOWER(${documents.type}) = LOWER(${doctype.type})`)
+        .groupBy(doctype.id)
+
+    return result
 }
 
 export async function addBranch(formData: FormData) {
@@ -178,6 +199,7 @@ export async function updateUser(formData: FormData) {
     const branch = formData.get('branch') as string
     const branchName = branch === 'none' ? null : branch
     const zone = formData.get('zone') as string
+    const zoneName = zone === 'none' ? null : zone
     const canUpload = formData.get('canUpload') === 'on'
 
     if (!userId || !role) {
@@ -192,7 +214,7 @@ export async function updateUser(formData: FormData) {
             .set({
                 role: role as "branch" | "zonal_head" | "admin",
                 branch: branchName || null,
-                zone: zone || null,
+                zone: zoneName || null,
                 canUpload,
                 updatedAt: String(new Date().toISOString())
             })
@@ -200,18 +222,18 @@ export async function updateUser(formData: FormData) {
             .run()
 
         // Update in main DB
-        await db.update(users)
+        const user = await db.update(users)
             .set({
                 role: role as "branch" | "zonal_head" | "admin",
                 branch: branchName || null,
-                zone: zone || null,
+                zone: zoneName || null,
                 canUpload,
                 updatedAt: new Date().toISOString()
             })
-            .where(eq(users.id, Number(userId)))
+            .where(eq(users.id, Number(userId))).returning()
 
         revalidatePath('/settings')
-        return { success: true, message: 'User updated successfully' }
+        return { success: true, message: 'User updated successfully', user: user }
     } catch (error) {
         console.error('Failed to update user:', error)
         throw new Error('Failed to update user')
@@ -219,87 +241,36 @@ export async function updateUser(formData: FormData) {
 }
 
 
-export async function updateSetting(formData: FormData) {
-    const session = await auth()
-    if (!session?.user || session.user.role !== 'admin') {
-        throw new Error('Unauthorized')
-    }
 
-    const key = formData.get('key') as string | null
-    let value = formData.get('value') as string | null
-
-    if (!key) {
-        throw new Error('Setting key is required')
-    }
-
-    try {
-        const now = new Date()
-
-        // Update local DB
-        await dblocal
-            .insert(localSettings)
-            .values({
-                key,
-                value: value ?? '',
-                createdAt: now.toISOString(),
-                updatedAt: now.toISOString(),
-            })
-            .onConflictDoUpdate({
-                target: localSettings.key,
-                set: {
-                    value: value ?? '',
-                    updatedAt: now.toISOString(),
-                },
-            })
-            .run()
-
-
-        // Update main DB
-        await db
-            .insert(settings)
-            .values({ key, value: value ?? '' })
-            .onConflictDoUpdate({
-                target: settings.key,
-                set: { value: value ?? '' },
-            })
-
-        revalidatePath('/settings')
-
-        return { success: true, message: 'Setting updated successfully' }
-    } catch (error) {
-        console.error('Failed to update setting:', error)
-        return { success: false, message: 'Failed to update setting' }
-    }
-}
 
 export type LoadDataFromServer = {
     session: Awaited<ReturnType<typeof getSession>>
     branches: Awaited<ReturnType<typeof getBranches>>
     users: Awaited<ReturnType<typeof getUsers>>
     settings: Awaited<ReturnType<typeof getSettings>>
+    doctypes: Awaited<ReturnType<typeof getDocTypes>>
 }
 
 export async function LoadDataFromServer(): Promise<LoadDataFromServer> {
-    const [sessionData, branchesData, usersData, settingsData] = await Promise.all([
+    const [sessionData, branchesData, usersData, settingsData, doctypes] = await Promise.all([
         getSession(),
         getBranches(),
         getUsers(),
-        getSettings()
+        getSettings(),
+        getDocTypes()
     ])
     return {
         session: sessionData,
         branches: branchesData,
         users: usersData,
-        settings: settingsData
+        settings: settingsData,
+        doctypes: doctypes
     }
 }
 export async function addSetting(formData: FormData) {
     const key = formData.get('finalKey') as string
     let value = formData.get('value') as string
-    const isDocumentType = formData.get('isDocumentType') === 'on'
-    if (isDocumentType && value != 'DOC_TYPE_') {
-        value = 'DOC_TYPE_'
-    }
+
 
     try {
         const existing = await db.select()
@@ -312,12 +283,14 @@ export async function addSetting(formData: FormData) {
         }
 
         // Insert new setting
-        await db.insert(settings)
+        const setting = await db.insert(settings)
             .values({
                 key,
                 value,
-            })
+            }).returning()
+
         await dblocal.insert(localSettings).values({
+            id: setting[0].id,
             value,
             key,
             updatedAt: new Date().toISOString(),
@@ -328,5 +301,137 @@ export async function addSetting(formData: FormData) {
     } catch (error) {
         console.error('Error adding setting:', error)
         return { success: false, error: 'Failed to add setting' }
+    }
+}
+export async function updateSetting(formData: FormData) {
+    const session = await auth()
+    if (!session?.user || session.user.role !== 'admin') {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    const key = formData.get('key') as string | null
+    const value = formData.get('value') as string | null
+
+    if (!key) {
+        return { success: false, error: 'Setting key is required' }
+    }
+    if (!value) {
+        return { success: false, error: 'Setting value is required' }
+    }
+
+    try {
+
+        await dblocal.update(localSettings)
+            .set({
+                value,
+                updatedAt: new Date().toISOString()
+            })
+            .where(eq(localSettings.key, key))
+            .run()
+
+        await db.update(settings)
+            .set({
+                value,
+            })
+            .where(eq(settings.key, key))
+
+
+        revalidatePath('/settings')
+
+        return { success: true, message: 'Setting updated successfully' }
+    } catch (error) {
+        console.error('Failed to update setting:', error)
+        return { success: false, error: 'Failed to update setting' }
+    }
+}
+
+export async function deleteSetting(formData: FormData) {
+    const session = await auth()
+    if (!session?.user || session.user.role !== 'admin') {
+        return { success: false, error: 'Unauthorized' }
+    }
+
+    const key = formData.get('key') as string | null
+
+    if (!key) {
+        return { success: false, error: 'Setting key is required' }
+    }
+
+    try {
+        // Delete from local DB
+        await dblocal
+            .delete(localSettings)
+            .where(eq(localSettings.key, key))
+            .run()
+
+        // Delete from main DB
+        await db
+            .delete(settings)
+            .where(eq(settings.key, key))
+
+        revalidatePath('/settings')
+
+        return { success: true, message: 'Setting deleted successfully', key }
+    } catch (error) {
+        console.error('Failed to delete setting:', error)
+        return { success: false, error: 'Failed to delete setting' }
+    }
+}
+
+export async function addDocType(formData: FormData) {
+    const type = formData.get('type') as string
+
+    if (!type) return { success: false, error: 'Type is required' }
+
+    try {
+        const newdoctype = await db.insert(doctype).values({
+            type,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        }).returning()
+
+        await dblocal.insert(loacldoctype).values({
+            id: newdoctype[0].id,
+            type,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        })
+        revalidatePath('/settings') // or wherever this is shown
+        return { success: true }
+    } catch (error: any) {
+        console.error('Failed to add doc type:', error)
+        if (error.message.includes('UNIQUE')) {
+            return { success: false, error: 'Type already exists' }
+        }
+        return { success: false, error: 'Failed to add type' }
+    }
+}
+
+export async function deleteDocType(formData: FormData) {
+    const session = await auth()
+    if (!session?.user || session.user.role !== 'admin') {
+        return { success: false, error: 'Unauthorized' }
+    }
+    const id = Number(formData.get('id'))
+
+    if (!id) return { success: false, error: 'ID is required' }
+
+    try {
+        await db.delete(doctype).where(eq(doctype.id, id))
+        await dblocal.delete(loacldoctype).where(eq(loacldoctype.id, id))
+
+        await db.insert(changeLog).values({
+            tableName: 'doctype',
+            recordId: id,
+            changeType: 'delete',
+            changedAt: new Date().toISOString(),
+            changedBy: session.user.id,
+        });
+
+        revalidatePath('/settings')
+        return { success: true, id }
+    } catch (error) {
+        console.error('Failed to delete doc type:', error)
+        return { success: false, error: 'Failed to delete type' }
     }
 }

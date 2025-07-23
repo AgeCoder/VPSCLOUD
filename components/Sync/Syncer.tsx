@@ -5,56 +5,65 @@ import { syncMetadata } from '@/lib/localdb/schema'
 import { eq } from 'drizzle-orm'
 import { SyncButton } from './SyncButton'
 import { SyncService } from '@/lib/doc/syncDocuments'
+import { User } from '@/types/types'
 
 const SYNC_COOLDOWN_MIN = 3
-const AUTO_SYNC_INTERVAL_MIN = 1440
+const AUTO_SYNC_INTERVAL_MIN = 1440 // 24 hours
 
 export default async function Syncer() {
     const session = await auth()
     if (!session?.user) return null
 
-    // Get last sync time
-    const lastSync = await dblocal
+    const now = new Date()
+    const lastSync = await getLastSync()
+    const diffInMinutes = calculateTimeDifferenceInMinutes(now, lastSync?.lastSync)
+
+    const canForceSync = diffInMinutes >= SYNC_COOLDOWN_MIN
+    const shouldAutoSync = diffInMinutes >= AUTO_SYNC_INTERVAL_MIN
+
+    if (shouldAutoSync) {
+        await attemptAutoSync(session.user)
+    }
+
+    const cooldownRemainingMs = canForceSync ? 0 : (SYNC_COOLDOWN_MIN - diffInMinutes) * 60 * 1000
+
+    return <SyncButton canSync={canForceSync} timeLeftMs={cooldownRemainingMs} />
+}
+
+// --- Helper Functions ---
+
+async function getLastSync() {
+    return await dblocal
         .select()
         .from(syncMetadata)
         .where(eq(syncMetadata.tableName, 'lastAllSync'))
-        .then((res) => res[0])
+        .then(res => res[0])
+}
 
-    const now = new Date()
-    let diffInMinutes = SYNC_COOLDOWN_MIN + 1
+function calculateTimeDifferenceInMinutes(now: Date, lastSyncTime?: string): number {
+    if (!lastSyncTime) return SYNC_COOLDOWN_MIN + 1
 
-    if (lastSync) {
-        const diff = now.getTime() - new Date(lastSync.lastSync).getTime()
-        diffInMinutes = Math.floor(diff / 1000 / 60)
-    }
+    const lastSyncDate = new Date(lastSyncTime)
+    const diffMs = now.getTime() - lastSyncDate.getTime()
+    return Math.floor(diffMs / (1000 * 60))
+}
 
-    const canForceSync = diffInMinutes >= SYNC_COOLDOWN_MIN
+async function attemptAutoSync(user: User) {
+    try {
+        const syncService = new SyncService(user)
+        const baseTables = ['users', 'branch', 'documents', 'settings', 'doctype']
+        const tablesToSync = user.role === 'admin' ? [...baseTables, 'accessLogs'] : baseTables
 
-    // Auto-sync logic
-    if (diffInMinutes >= AUTO_SYNC_INTERVAL_MIN) {
-        try {
-            const syncService = new SyncService(session.user)
-            if (session.user.role !== 'admin') {
-                await syncService.syncAll({
-                    fullSync: false,
-                    tables: ['users', 'branch', 'documents', 'settings']
-                })
-            } else {
-                await syncService.syncAll({ fullSync: false, tables: ['users', 'branch', 'documents', 'settings', 'accessLogs'] })
-            }
+        await syncService.syncAll({ fullSync: false, tables: tablesToSync })
 
-            await dblocal.insert(syncMetadata).values({
-                tableName: 'lastAllSync',
-                lastSync: new Date().toISOString()
-            }).onConflictDoUpdate({
+        await dblocal
+            .insert(syncMetadata)
+            .values({ tableName: 'lastAllSync', lastSync: new Date().toISOString() })
+            .onConflictDoUpdate({
                 target: syncMetadata.tableName,
                 set: { lastSync: new Date().toISOString() }
             })
-        } catch (err) {
-            console.error('Auto-sync failed:', err)
-        }
+    } catch (error) {
+        console.error('Auto-sync failed:', error)
     }
-
-    // app/components/Syncer.tsx
-    return <SyncButton canSync={canForceSync} timeLeftMs={diffInMinutes < SYNC_COOLDOWN_MIN ? SYNC_COOLDOWN_MIN * 60 * 1000 - (diffInMinutes * 60 * 1000) : 0} />
 }

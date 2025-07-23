@@ -110,3 +110,20 @@
 .tab-underline.active::after {
   width: 100%;
 }
+
+.loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100dvh;
+  width: 100dvw;
+  background-color: rgba(0, 0, 0, 0.5);
+  /* semi-transparent black */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  color: white;
+  font-size: 1.5rem;
+  pointer-events: all;
+}

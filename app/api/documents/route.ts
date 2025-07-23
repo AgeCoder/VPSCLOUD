@@ -68,6 +68,7 @@ export async function GET(req: NextRequest) {
         .leftJoin(users, eq(documents.uploadedBy, users.id))
         .where(inArray(documents.branch, accessibleBranches))
         .orderBy(desc(documents.uploadedAt))
+        .all()
     }
 
     return NextResponse.json(userDocuments)

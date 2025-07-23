@@ -1,13 +1,15 @@
 // app/dashboard/page.tsx
-import { DashboardContent } from "@/components/dashboard-content"
+import { DashboardContent } from "@/components/dashboard/dashboard-content"
 import { auth } from "@/lib/auth/auth"
 import { redirect } from "next/navigation"
 import { dblocal } from "@/lib/localdb/index"
-import { branch, settings } from "@/lib/localdb/schema"
+import { branch, doctype, settings } from "@/lib/localdb/schema"
 import { db } from "@/lib/db"
 import { users } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import Navbar from "@/components/layout/Navbar"
+import RunCleanup from "@/lib/Cleanup/RunCleanup"
+
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -20,11 +22,12 @@ export default async function DashboardPage() {
   const canUpload = await db.select({
     canUpload: users.canUpload
   }).from(users).where(eq(users.id, session.user.id)).then((res) => res[0]?.canUpload)
+
   const docType = await dblocal.select({
-    docType: settings.key
-  }).from(settings).where(eq(settings.value, 'DOC_TYPE_')).then(
-    (res) => res.map((item) => item.docType)
-  )
+    docType: doctype.type
+  }).from(doctype)
+    .then(res => res.map(item => item.docType));
+
 
   // Transform branches into ZONE_MAPPING format
   const ZONE_MAPPING = branches.reduce((acc, branch) => {
@@ -37,6 +40,12 @@ export default async function DashboardPage() {
 
   return (
     <>
+
+      {
+        session.user.role === 'admin' ? (
+          <RunCleanup />
+        ) : null
+      }
       <Navbar user={session.user} />
       <DashboardContent
         user={session.user}

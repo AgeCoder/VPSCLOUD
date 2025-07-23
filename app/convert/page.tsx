@@ -292,10 +292,11 @@ export default function ImageToPDFConverter() {
                                 className="gap-2"
                             >
                                 {isConverting ? (
-                                    <>
+                                    <div
+                                        className='loading flex gap-5 items-center'>
                                         <Loader2 className="w-4 h-4 animate-spin" />
                                         Converting...
-                                    </>
+                                    </div>
                                 ) : (
                                     <>
                                         {conversionMode === 'separate' ? (

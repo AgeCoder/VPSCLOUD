@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Pencil, User, Shield, Upload } from 'lucide-react'
 import { updateUser } from '@/app/setting/action'
@@ -30,16 +30,29 @@ interface UserEditModalProps {
     user: any
     branches: any[]
     onClose: () => void
+    ZONE_MAPPING: Record<string, string[]
+    >
+    handleUserUpdated: (updatedUser: any) => void
 }
 
-export function UserEditModal({ user, branches, onClose }: UserEditModalProps) {
+export function UserEditModal({ user, branches, onClose, ZONE_MAPPING, handleUserUpdated }: UserEditModalProps) {
     const [updateUserState, updateUserAction] = useActionState(
         async (_prevState: any, formData: FormData) => await updateUser(formData),
         null
     )
 
+    const [selectedZone, setSelectedZone] = useState(user.zone || 'none')
+    const [selectedBranch, setSelectedBranch] = useState(user.branch || 'none')
+    const [selectedRole, setSelectedRole] = useState(user.role);
+
+
+    const filteredBranches = selectedZone
+        ? branches.filter(b => b.zone === selectedZone)
+        : branches
+
     useEffect(() => {
         if (updateUserState?.success) {
+            handleUserUpdated(updateUserState.user)
             toast.success('User updated successfully', {
                 description: updateUserState.message
             })
@@ -84,7 +97,20 @@ export function UserEditModal({ user, branches, onClose }: UserEditModalProps) {
 
                         <div className="space-y-2">
                             <Label htmlFor="role">Role</Label>
-                            <Select name="role" defaultValue={user.role} required>
+                            <Select
+                                name="role"
+                                defaultValue={user.role}
+                                required
+                                onValueChange={(value) => {
+                                    setSelectedRole(value);
+                                    if (value === 'admin') {
+                                        setSelectedZone('');
+                                        setSelectedBranch('');
+                                    } else if (value === 'zonal_head') {
+                                        setSelectedBranch('');
+                                    }
+                                }}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select role" />
                                 </SelectTrigger>
@@ -111,14 +137,41 @@ export function UserEditModal({ user, branches, onClose }: UserEditModalProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
+                            <Label htmlFor="zone">Zone</Label>
+                            <Select
+                                name="zone"
+                                value={selectedZone}
+                                onValueChange={(value) => {
+                                    setSelectedZone(value);
+                                    setSelectedBranch('');
+                                }}
+                                disabled={selectedRole === 'admin'}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select zone" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.keys(ZONE_MAPPING).map(zone => (
+                                        <SelectItem key={zone} value={zone}>{zone}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="branch">Branch Assignment</Label>
-                            <Select name="branch" defaultValue={user.branch || 'none'} >
+                            <Select
+                                name="branch"
+                                value={selectedBranch}
+                                onValueChange={setSelectedBranch}
+                                disabled={!selectedZone || selectedRole !== 'branch'}
+                            >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select branch" />
                                 </SelectTrigger>
-                                <SelectContent className='h-60' >
-                                    <SelectItem value="none" >No branch assigned</SelectItem>
-                                    {branches.map((branch) => (
+                                <SelectContent className='h-60'>
+                                    <SelectItem value='none'>No branch assigned</SelectItem>
+                                    {filteredBranches.map((branch) => (
                                         <SelectItem key={branch.id} value={branch.name}>
                                             <div className="flex items-center gap-2">
                                                 <span>{branch.name}</span>
@@ -128,16 +181,6 @@ export function UserEditModal({ user, branches, onClose }: UserEditModalProps) {
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="zone">Zone Override</Label>
-                            <Input
-                                type="text"
-                                name="zone"
-                                defaultValue={user.zone || ''}
-                                placeholder="Leave blank to use branch zone"
-                            />
                         </div>
                     </div>
 

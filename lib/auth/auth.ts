@@ -1,6 +1,6 @@
 import NextAuth from "next-auth"
 import { db } from "@/lib/db"
-import { users, verificationTokens } from "@/lib/db/schema"
+import { loginSessions, users, verificationTokens } from "@/lib/db/schema"
 import { eq, and, gt } from "drizzle-orm"
 import { generateOTP, isValidEmail } from "@/lib/utils"
 import Credentials from "next-auth/providers/credentials"
@@ -37,6 +37,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!user) {
             return null
           }
+
+          await db.insert(loginSessions).values({
+            userId: user.id,
+            email: user.email,
+            loginAt: new Date().toISOString(),
+          })
 
 
           return {

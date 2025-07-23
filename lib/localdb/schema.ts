@@ -40,7 +40,7 @@ export const accessLogs = sqliteTable("access_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id")
     .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+    .references(() => users.id, { onDelete: "set null" }),
   fileId: integer("file_id")
     .references(() => documents.id, { onDelete: "set null" }), // ← changed this
   action: text("action", { enum: actionEnumValues }).notNull(),
@@ -68,7 +68,8 @@ export const verificationTokens = sqliteTable("verification_tokens", {
 })
 
 export const settings = sqliteTable("settings", {
-  key: text("key").primaryKey(),
+  id: integer("id").primaryKey(),
+  key: text("key").notNull().unique(),
   value: text("value").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -82,16 +83,20 @@ export const branch = sqliteTable('branch', {
   updatedAt: text('updated_at').notNull(),
 })
 
-// Enhanced sync metadata table
+
 export const syncMetadata = sqliteTable("sync_metadata", {
   tableName: text("table_name").primaryKey(),
   lastSync: text("last_sync").notNull(),
   lastChangeId: integer("last_change_id"), // For tracking change_log increments
 })
 
-// Relations remain the same as in your original schema
+export const doctype = sqliteTable('doctype', {
+  id: integer("id").primaryKey(),
+  type: text('type').notNull().unique(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
 
-// Relations
 export const usersRelations = relations(users, ({ many }) => ({
   documents: many(documents),
   accessLogs: many(accessLogs),

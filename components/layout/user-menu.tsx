@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { BarChart, FileText, History, LogOut, Settings } from "lucide-react"
+import { BarChart, EyeIcon, FileText, FolderRoot, History, LogOut, ReplyIcon, Settings } from "lucide-react"
 
 export interface UserMenuProps {
   user: {
@@ -48,9 +48,8 @@ export function UserMenu({ user }: UserMenuProps) {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{user.email}</p>
-            <p className="text-xs leading-none text-muted-foreground capitalize">
-              {user.role} • {user.branch || user.zone}
-            </p>
+            <span className="text-gray-300 capitalize">{user.role}</span>
+
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -66,22 +65,46 @@ export function UserMenu({ user }: UserMenuProps) {
           <span>PDF Converter</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        {
+          (user.role === 'admin' || user.role === 'zonal_head') && (
+            <>
+              <DropdownMenuItem onClick={() => redirect('/reports')}>
+                <FolderRoot />
+                <span>Reports</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )
+        }
+
 
         {
           user.role === 'admin' && (
             <>
+
               <DropdownMenuItem
                 onClick={
                   (e) => {
-                    redirect('/r2-analytics')
+                    redirect('/setting')
                   }
                 }
               >
-                <BarChart />
-                <span>R2 Analytics</span>
+                <Settings />
+                <span> Settings</span>
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={
+                  (e) => {
+                    redirect('/log')
+                  }
+                }
+              >
+                <EyeIcon />
+                <span> Login Sessions</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+
               <DropdownMenuItem
                 onClick={
                   (e) => {
@@ -96,13 +119,14 @@ export function UserMenu({ user }: UserMenuProps) {
               <DropdownMenuItem
                 onClick={
                   (e) => {
-                    redirect('/setting')
+                    redirect('/r2-analytics')
                   }
                 }
               >
-                <Settings />
-                <span> Settings</span>
+                <BarChart />
+                <span>R2 Analytics</span>
               </DropdownMenuItem>
+
               <DropdownMenuSeparator />
 
             </>

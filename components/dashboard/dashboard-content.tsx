@@ -1,26 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DocumentList } from "@/components/document-list"
-import { UploadForm } from "@/components/upload-form"
+import { DocumentList } from "@/components/dashboard/document-list"
+import { UploadForm } from "@/components/dashboard/upload-form"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UploadCloud, FileSearch } from "lucide-react"
+import { DashboardContentProps } from "./types"
+import { toast } from "sonner"
 
-interface User {
-  id: string
-  email: string
-  role: string
-  zone?: string
-  branch?: string
-}
 
-interface DashboardContentProps {
-  user: User
-  zoneMapping: Record<string, string[]>
-  canUpload: Boolean | null
-  docType: string[] | null
-}
 
 export function DashboardContent({ user, zoneMapping, canUpload, docType }: DashboardContentProps) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -51,6 +40,7 @@ export function DashboardContent({ user, zoneMapping, canUpload, docType }: Dash
   const handleUploadSuccess = () => {
     fetchDocuments()
     setActiveTab("documents")
+    toast.success("Document uploaded successfully!")
   }
 
   return (

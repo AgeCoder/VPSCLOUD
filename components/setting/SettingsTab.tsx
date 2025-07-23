@@ -1,4 +1,3 @@
-// app/settings/components/SettingsTab.tsx
 'use client'
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SubmitButton } from './SubmitButton'
 import { toast } from 'sonner'
-import { updateSetting, addSetting } from '@/app/setting/action'
+import { updateSetting, addSetting, deleteSetting } from '@/app/setting/action'
 import { useActionState, useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -19,6 +18,7 @@ import {
     DialogClose
 } from '@/components/ui/dialog'
 import { Label } from '../ui/label'
+import { Trash2 } from 'lucide-react'
 
 const CONFIGURATION_SETTINGS = [
     'GMAIL_USER',
@@ -30,64 +30,63 @@ const CONFIGURATION_SETTINGS = [
     'CLOUDFLARE_R2_BUCKET_NAME'
 ]
 
-const DOCUMENT_TYPE_PREFIX = 'DOC_TYPE_'
-
 interface SettingsTabProps {
     settings: Array<{
         key: string
         value: string
-        isDocumentType?: boolean
     }>
 }
 
 export function SettingsTab({ settings: initialSettings }: SettingsTabProps) {
     const [settings, setSettings] = useState(initialSettings)
     const [isAdding, setIsAdding] = useState(false)
-    const [newSetting, setNewSetting] = useState({
-        key: '',
-        value: '',
-        isDocumentType: false
-    })
+    const [newSetting, setNewSetting] = useState({ key: '', value: '' })
 
     const [updateState, updateAction] = useActionState(
-        async (_state: any, formData: FormData) => await updateSetting(formData),
+        async (_: any, formData: FormData) => await updateSetting(formData),
         null
     )
 
     const [addState, addAction] = useActionState(
-        async (_state: any, formData: FormData) => await addSetting(formData),
+        async (_: any, formData: FormData) => await addSetting(formData),
+        null
+    )
+
+    const [deleteState, deleteAction] = useActionState(
+        async (_: any, formData: FormData) => await deleteSetting(formData),
         null
     )
 
     useEffect(() => {
         if (updateState?.success) {
             toast.success('Setting updated successfully')
-        } else if (!updateState?.success) {
-            toast.error(updateState?.message ?? '')
+            window.location.reload()
+        } else if (updateState?.error) {
+            toast.error(updateState.error)
         }
     }, [updateState])
 
     useEffect(() => {
         if (addState?.success) {
             toast.success('Setting added successfully')
-            setSettings(prev => [...prev, {
-                key: newSetting.key,
-                value: newSetting.value,
-                isDocumentType: newSetting.isDocumentType
-            }])
-            setNewSetting({ key: '', value: '', isDocumentType: false })
+            setSettings(prev => [...prev, { ...newSetting }])
+            setNewSetting({ key: '', value: '' })
             setIsAdding(false)
         } else if (addState?.error) {
-            toast.error(addState?.error ?? '')
+            toast.error(addState.error)
         }
     }, [addState])
 
+    useEffect(() => {
+        if (deleteState?.success && deleteState.key) {
+            toast.success('Setting deleted successfully')
+            setSettings(prev => prev.filter(s => s.key !== deleteState.key))
+        } else if (deleteState?.error) {
+            toast.error(deleteState.error)
+        }
+    }, [deleteState])
+
     const isConfigSetting = (key: string) => CONFIGURATION_SETTINGS.includes(key)
-    const isDocumentType = (key: string) => key.startsWith(DOCUMENT_TYPE_PREFIX)
-
-
-
-
 
     return (
         <div className="space-y-6">
@@ -95,9 +94,7 @@ export function SettingsTab({ settings: initialSettings }: SettingsTabProps) {
                 <h2 className="text-2xl font-bold">System Settings</h2>
                 <Dialog open={isAdding} onOpenChange={setIsAdding}>
                     <DialogTrigger asChild>
-                        <Button size="sm">
-                            Add Setting
-                        </Button>
+                        <Button size="sm">Add Setting</Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
@@ -106,62 +103,22 @@ export function SettingsTab({ settings: initialSettings }: SettingsTabProps) {
                         <form action={addAction} className="space-y-4">
                             <div className="space-y-2">
                                 <Label>Key</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        name="key"
-                                        value={newSetting.key}
-                                        onChange={(e) => setNewSetting({ ...newSetting, key: e.target.value })}
-                                        placeholder={newSetting.isDocumentType ? "Document Type" : "SETTING_KEY"}
-                                        className="flex-1"
-                                    />
-                                </div>
+                                <Input
+                                    name="key"
+                                    value={newSetting.key}
+                                    onChange={(e) => setNewSetting({ ...newSetting, key: e.target.value })}
+                                    placeholder="SETTING_KEY"
+                                />
                             </div>
-
                             <div className="space-y-2">
                                 <Label>Value</Label>
-                                {newSetting.isDocumentType ? (
-                                    <Input
-                                        name="value"
-                                        value='DOC_TYPE_'
-                                        disabled
-                                        placeholder="Setting value"
-                                    />
-                                ) : (
-                                    <Input
-                                        name="value"
-                                        value={newSetting.value}
-                                        onChange={(e) => setNewSetting({ ...newSetting, value: e.target.value })}
-                                        placeholder="Setting value"
-                                    />
-                                )}
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                                <input
-                                    type="checkbox"
-                                    id="isDocumentType"
-                                    name="isDocumentType"
-                                    checked={newSetting.isDocumentType}
-                                    onChange={(e) => {
-                                        const isDocumentType = e.target.checked
-                                        setNewSetting({
-                                            ...newSetting,
-                                            isDocumentType,
-                                            value: isDocumentType ? "DOC_TYPE_" : "" // Set default value when checked
-                                        })
-                                    }}
-                                    className="h-4 w-4"
+                                <Input
+                                    name="value"
+                                    value={newSetting.value}
+                                    onChange={(e) => setNewSetting({ ...newSetting, value: e.target.value })}
+                                    placeholder="Setting value"
                                 />
-                                <Label htmlFor="isDocumentType">Document Type</Label>
                             </div>
-
-                            <input
-                                type="hidden"
-                                name="finalKey"
-                                value={newSetting.key
-                                }
-                            />
-
                             <div className="flex justify-end gap-2">
                                 <DialogClose asChild>
                                     <Button variant="outline">Cancel</Button>
@@ -186,50 +143,37 @@ export function SettingsTab({ settings: initialSettings }: SettingsTabProps) {
                     <TableBody>
                         {settings.map((setting) => (
                             <TableRow key={setting.key}>
-                                <TableCell className="font-medium">
-                                    <div className="flex items-center gap-2">
-                                        {setting.key}
-                                        {isDocumentType(setting.key) && (
-                                            <Badge variant="secondary">Document</Badge>
-                                        )}
-                                    </div>
+                                <TableCell className="font-medium">{setting.key}</TableCell>
+                                <TableCell>
+                                    <form action={updateAction} className="flex items-center gap-2">
+                                        <input type="hidden" name="key" value={setting.key} />
+                                        <Input
+                                            type={setting.key.includes('PASSWORD') ? 'password' : 'text'}
+                                            name="value"
+                                            defaultValue={setting.value}
+                                            className="w-full"
+                                        />
+                                        <SubmitButton size="sm" variant="outline">Save</SubmitButton>
+                                    </form>
                                 </TableCell>
                                 <TableCell>
-                                    {isConfigSetting(setting.key) || isDocumentType(setting.key) ? (
-                                        <form action={updateAction} className="flex items-center gap-2">
-                                            <input type="hidden" name="key" value={setting.key} />
-
-                                            <Input
-                                                type={setting.key.includes('PASSWORD') ? 'password' : 'text'}
-                                                name="value"
-                                                defaultValue={setting.value}
-                                                className="w-full"
-                                            />
-
-                                            <SubmitButton size="sm" variant="outline">Save</SubmitButton>
-                                        </form>
-                                    ) : (
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                value={setting.value}
-                                                readOnly
-                                                className="w-full bg-muted"
-                                            />
-                                        </div>
-                                    )}
+                                    <Badge variant={isConfigSetting(setting.key) ? "default" : "outline"}>
+                                        {isConfigSetting(setting.key) ? "Config" : "System"}
+                                    </Badge>
                                 </TableCell>
-                                <TableCell>
-                                    {isConfigSetting(setting.key) ? (
-                                        <Badge variant="default">Config</Badge>
-                                    ) : isDocumentType(setting.key) ? (
-                                        <Badge variant="secondary">Document Type</Badge>
-                                    ) : (
-                                        <Badge variant="outline">System</Badge>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-
-                                </TableCell>
+                                {/* <TableCell>
+                                    <form action={deleteAction}>
+                                        <input type="hidden" name="key" value={setting.key} />
+                                        <Button
+                                            size="icon"
+                                            variant="ghost"
+                                            type="submit"
+                                            className="text-red-500 hover:bg-red-100"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </form>
+                                </TableCell> */}
                             </TableRow>
                         ))}
                     </TableBody>

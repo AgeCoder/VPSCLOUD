@@ -11,6 +11,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import { BackupSettings } from '@/components/backup/backup-settings'
+import { DocTypeTab } from '@/components/setting/DocTypeTab'
 
 interface SettingsPageProps {
     session: any
@@ -18,6 +19,7 @@ interface SettingsPageProps {
     users: any[]
     settings: any[]
     ZONE_MAPPING: Record<string, string[]>
+    doctypes: any[]
 }
 
 export default function SettingsPage({
@@ -25,9 +27,10 @@ export default function SettingsPage({
     branches,
     users,
     settings,
-    ZONE_MAPPING
+    ZONE_MAPPING,
+    doctypes
 }: SettingsPageProps) {
-    const [activeTab, setActiveTab] = useState('branches')
+    const [activeTab, setActiveTab] = useState('doctypes')
 
     if (!session) {
         return <div className="flex justify-center items-center h-screen">Loading...</div>
@@ -60,8 +63,11 @@ export default function SettingsPage({
             )}
 
             <Tabs activeTab={activeTab} setActiveTab={setActiveTab} branchesCount={branches.length}
-                usersCount={users.length} />
+                usersCount={users.length} doctypesCount={doctypes.length} />
 
+            {activeTab === 'doctypes' && <DocTypeTab
+                initialTypes={doctypes}
+            />}
             {activeTab === 'branches' && <BranchTab branches={branches} session={session} />}
             {activeTab === 'users' && <UserTab users={users} branches={branches} session={session} ZONE_MAPPING={ZONE_MAPPING} />}
             {activeTab === 'settings' && <SettingsTab settings={settings} />}
